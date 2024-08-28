@@ -1,3 +1,5 @@
+mod hyperliquid;
+
 use anyhow::Result;
 use chrono::{Duration, Utc};
 use hyperliquid_rust_sdk::InfoClient;
@@ -11,6 +13,8 @@ async fn main() -> Result<()> {
     let info_client = InfoClient::new(None, None).await.unwrap();
 
     // let fh = funding_history_example(&info_client).await;
+
+    // println!("{:#?}", fh);
 
     let tokens = get_tokens();
 
@@ -34,36 +38,42 @@ fn get_tokens() -> Result<Vec<String>> {
 async fn retrieve_funding_rates_from_tokens(
     tokens: Vec<String>,
     info_client: &InfoClient,
-) -> Result<Vec<(String, String)>> {
+) -> Result<Vec<(String, f64)>> {
     // Token - Funding Rate
-    let mut tokens_with_fr: Vec<(String, String)> = vec![];
+    let mut tokens_with_fr: Vec<(String, f64)> = vec![];
 
-    let start_timestamp = (Utc::now() - Duration::hours(1)).timestamp_millis() as u64;
+    let start_timestamp = (Utc::now() - Duration::minutes(30)).timestamp_millis() as u64;
     println!("{start_timestamp}");
 
     for token in tokens {
+        println!("{token}");
         let fhr = info_client
             .funding_history(token.clone(), start_timestamp, None)
             .await?;
 
-        println!("{token}");
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+
+        let fhr = fhr.last().unwrap();
         println!("{:#?}", fhr);
 
-        let fhr = fhr.first().unwrap();
+        let funding_rate = fhr.funding_rate.parse::<f64>().unwrap_or(0.0);
 
-        tokens_with_fr.push((fhr.coin.clone(), fhr.funding_rate.clone()));
+        tokens_with_fr.push((fhr.coin.clone(), funding_rate));
     }
 
     Ok(tokens_with_fr)
 }
 
 async fn funding_history_example(info_client: &InfoClient) {
-    let coin = "ETH";
+    let coin = "MKR";
 
-    let start_timestamp = 1690540602225;
-    let end_timestamp = 1690569402225;
+    let start_timestamp = 1724803039095;
+    let end_timestamp = None;
     info!(
-        "Funding data history for {coin} between timestamps {start_timestamp} and {end_timestamp}: {:#?}",
-        info_client.funding_history(coin.to_string(), start_timestamp, Some(end_timestamp)).await.unwrap()
+        "{:#?}",
+        info_client
+            .funding_history(coin.to_string(), start_timestamp, end_timestamp)
+            .await
+            .unwrap()
     );
 }
