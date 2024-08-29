@@ -38,7 +38,7 @@ pub struct HyperliquidToken {
     pub name: String,
     pub max_leverage: u8,
     pub sz_decimals: u8,
-    pub funding_rate: f64,
+    pub hourly_funding_rate: f64,
     pub open_interest: f64,
 }
 
@@ -68,7 +68,7 @@ pub async fn retrieve_hl_tokens(info_client: &InfoClient) -> Vec<HyperliquidToke
             name: token.name,
             max_leverage: token.max_leverage,
             sz_decimals: token.sz_decimals,
-            funding_rate,
+            hourly_funding_rate: funding_rate,
             open_interest,
         };
 
@@ -98,9 +98,9 @@ mod tests {
         let mut tokens = retrieve_hl_tokens(&info_client).await;
 
         tokens.sort_by(|a, b| {
-            b.funding_rate
+            b.hourly_funding_rate
                 .abs()
-                .partial_cmp(&a.funding_rate.abs())
+                .partial_cmp(&a.hourly_funding_rate.abs())
                 .unwrap()
         });
 

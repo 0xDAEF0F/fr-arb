@@ -1,3 +1,4 @@
+mod binance;
 mod hyperliquid;
 
 use anyhow::Result;
