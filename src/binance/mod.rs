@@ -8,45 +8,43 @@ use anyhow::Result;
 use funding_info::retrieve_binance_funding_info;
 use funding_rate::retrieve_binance_funding_rates;
 use leverage::retrieve_binance_leverage;
-use open_interest::retrieve_token_open_interest;
 use reqwest::Client;
 use std::collections::HashMap;
 
-struct HashBucket {
-    index_price: String,
-    last_funding_rate: String,
-    funding_interval_hours: u8,
-    required_margin_percent: String,
-    open_interest: String,
-}
-
 #[derive(Debug)]
-struct BinanceToken {
+struct RawBinanceToken {
+    index_price: f64,
     symbol: String,
     required_margin_percent: String,
     last_funding_rate: f64,
     funding_interval_hours: u8,
-    open_interest: String,
 }
 
-pub async fn build_binance_tokens() -> Result<Vec<BinanceToken>> {
+#[derive(Debug)]
+struct BinanceToken {
+    name: String,
+    quote: String,
+    max_leverage: f64,
+    hourly_funding_rate: f64,
+}
+
+pub async fn build_binance_raw_tokens() -> Result<Vec<RawBinanceToken>> {
     let http_client = Client::new();
 
     let funding_rates = retrieve_binance_funding_rates(&http_client).await?;
     let funding_info = retrieve_binance_funding_info(&http_client).await?;
     let leverage_info = retrieve_binance_leverage(&http_client).await?;
 
-    let mut token_map: HashMap<String, BinanceToken> = HashMap::new();
+    let mut token_map: HashMap<String, RawBinanceToken> = HashMap::new();
 
     for rate in funding_rates {
-        let open_interest = retrieve_token_open_interest(&http_client, rate.symbol.clone()).await?;
         token_map.insert(
             rate.symbol.clone(),
-            BinanceToken {
+            RawBinanceToken {
+                index_price: rate.index_price.parse()?,
                 symbol: rate.symbol.clone(),
                 required_margin_percent: "".to_string(),
                 last_funding_rate: rate.last_funding_rate.parse()?,
-                open_interest: open_interest.open_interest,
                 funding_interval_hours: 0,
             },
         );
@@ -64,9 +62,45 @@ pub async fn build_binance_tokens() -> Result<Vec<BinanceToken>> {
         }
     }
 
-    let binance_tokens: Vec<BinanceToken> = token_map.into_values().collect();
+    let binance_tokens: Vec<RawBinanceToken> = token_map.into_values().collect();
+
+    // Remove symbols that don't end with USDC/USDT
+    // all `funding_interval_hours` that weren't filled, are going to be 8 by default
+    let binance_tokens: Vec<RawBinanceToken> = binance_tokens
+        .into_iter()
+        .filter(|t| t.symbol.ends_with("USDT") || t.symbol.ends_with("USDC"))
+        .map(|mut t| {
+            if t.funding_interval_hours == 0 {
+                t.funding_interval_hours = 8;
+            }
+            t
+        })
+        .collect();
 
     Ok(binance_tokens)
+}
+
+pub async fn build_binance_tokens() -> Result<Vec<BinanceToken>> {
+    let raw_binance_tokens = build_binance_raw_tokens().await?;
+
+    let tokens = raw_binance_tokens
+        .into_iter()
+        .map(|token| {
+            let pair = parse_symbol::parse_symbol(token.symbol).unwrap();
+
+            let hourly_funding_rate = token.last_funding_rate / token.funding_interval_hours as f64;
+            let max_leverage = 100_f64 / token.required_margin_percent.parse::<f64>().unwrap();
+
+            BinanceToken {
+                name: pair.base,
+                quote: pair.quote,
+                max_leverage,
+                hourly_funding_rate,
+            }
+        })
+        .collect();
+
+    Ok(tokens)
 }
 
 #[cfg(test)]
@@ -75,8 +109,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_build_binance_tokens() {
-        let b_tokens = build_binance_tokens().await.unwrap();
-
-        println!("{:#?}", b_tokens);
+        let tokens = build_binance_tokens().await.unwrap();
+        println!("{:#?}", tokens);
     }
 }
