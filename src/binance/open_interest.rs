@@ -4,12 +4,15 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct OpenInterest {
-    symbol: String,
-    open_interest: String,
+pub struct OpenInterest {
+    pub symbol: String,
+    pub open_interest: String,
 }
 
-async fn retrieve_token_open_interest(http_client: &Client, pair: String) -> Result<OpenInterest> {
+pub async fn retrieve_token_open_interest(
+    http_client: &Client,
+    pair: String,
+) -> Result<OpenInterest> {
     let url = format!("https://fapi.binance.com/fapi/v1/openInterest?symbol={pair}");
     let req = http_client.get(url).send().await?;
 

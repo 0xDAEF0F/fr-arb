@@ -10,12 +10,12 @@ struct Response {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct TokenLeverage {
-    symbol: String,
-    required_margin_percent: String,
+pub struct TokenLeverage {
+    pub symbol: String,
+    pub required_margin_percent: String,
 }
 
-async fn retrieve_binance_leverage(http_client: &Client) -> Result<Vec<TokenLeverage>> {
+pub async fn retrieve_binance_leverage(http_client: &Client) -> Result<Vec<TokenLeverage>> {
     let req = http_client
         .get("https://fapi.binance.com/fapi/v1/exchangeInfo")
         .send()
