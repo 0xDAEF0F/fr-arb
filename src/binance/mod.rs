@@ -21,11 +21,10 @@ struct RawBinanceToken {
 }
 
 #[derive(Debug)]
-struct BinanceToken {
-    name: String,
-    quote: String,
-    max_leverage: f64,
-    hourly_funding_rate: f64,
+pub struct BinanceToken {
+    pub name: String,
+    pub max_leverage: u8,
+    pub hourly_funding_rate: f64,
 }
 
 pub async fn build_binance_raw_tokens() -> Result<Vec<RawBinanceToken>> {
@@ -64,11 +63,11 @@ pub async fn build_binance_raw_tokens() -> Result<Vec<RawBinanceToken>> {
 
     let binance_tokens: Vec<RawBinanceToken> = token_map.into_values().collect();
 
-    // Remove symbols that don't end with USDC/USDT
+    // Remove symbols that don't end with USDT
     // all `funding_interval_hours` that weren't filled, are going to be 8 by default
     let binance_tokens: Vec<RawBinanceToken> = binance_tokens
         .into_iter()
-        .filter(|t| t.symbol.ends_with("USDT") || t.symbol.ends_with("USDC"))
+        .filter(|t| t.symbol.ends_with("USDT"))
         .map(|mut t| {
             if t.funding_interval_hours == 0 {
                 t.funding_interval_hours = 8;
@@ -89,11 +88,11 @@ pub async fn build_binance_tokens() -> Result<Vec<BinanceToken>> {
             let pair = parse_symbol::parse_symbol(token.symbol).unwrap();
 
             let hourly_funding_rate = token.last_funding_rate / token.funding_interval_hours as f64;
-            let max_leverage = 100_f64 / token.required_margin_percent.parse::<f64>().unwrap();
+            let max_leverage =
+                (100_f64 / token.required_margin_percent.parse::<f64>().unwrap()) as u8;
 
             BinanceToken {
                 name: pair.base,
-                quote: pair.quote,
                 max_leverage,
                 hourly_funding_rate,
             }

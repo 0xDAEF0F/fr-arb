@@ -37,9 +37,7 @@ struct FundingData {
 pub struct HyperliquidToken {
     pub name: String,
     pub max_leverage: u8,
-    pub sz_decimals: u8,
     pub hourly_funding_rate: f64,
-    pub open_interest: f64,
 }
 
 pub async fn retrieve_hl_tokens(info_client: &InfoClient) -> Vec<HyperliquidToken> {
@@ -61,15 +59,11 @@ pub async fn retrieve_hl_tokens(info_client: &InfoClient) -> Vec<HyperliquidToke
 
     for (token, funding_data) in tokens.into_iter().zip(fr.into_iter()) {
         let funding_rate: f64 = funding_data.funding.parse().unwrap();
-        let open_interest: f64 = funding_data.open_interest.parse().unwrap();
-        let open_interest: f64 = funding_data.oracle_px.parse::<f64>().unwrap() * open_interest;
 
         let hyperliquid_token = HyperliquidToken {
             name: token.name,
             max_leverage: token.max_leverage,
-            sz_decimals: token.sz_decimals,
             hourly_funding_rate: funding_rate,
-            open_interest,
         };
 
         hyperliquid_tokens.push(hyperliquid_token);

@@ -1,4 +1,5 @@
 mod binance;
+mod compare_funding_rates;
 mod hyperliquid;
 
 use anyhow::Result;
