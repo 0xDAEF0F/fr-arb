@@ -1,8 +1,8 @@
-use crate::{
-    binance::build_binance_tokens, hyperliquid::hyperliquid_funding_rate::retrieve_hl_tokens,
-};
+use crate::binance::binance_funding_rate::retrieve_binance_hourly_funding_rates;
+use crate::hyperliquid::hyperliquid_funding_rate::retrieve_hl_tokens;
 use anyhow::Result;
 use hyperliquid_rust_sdk::InfoClient;
+use reqwest::Client;
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -14,7 +14,8 @@ struct TokenComparison {
 }
 
 pub async fn compare_funding_rates() -> Result<Vec<TokenComparison>> {
-    let binance_tokens = build_binance_tokens().await?;
+    let http_client = Client::new();
+    let binance_tokens = retrieve_binance_hourly_funding_rates(&http_client).await?;
 
     let info_client = InfoClient::new(None, None).await?;
     let hyperliquid_tokens = retrieve_hl_tokens(&info_client).await;
