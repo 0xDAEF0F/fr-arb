@@ -13,10 +13,8 @@ struct Universe {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Token {
-    sz_decimals: u8,
     name: String,
     max_leverage: u8,
-    only_isolated: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -24,13 +22,6 @@ struct Token {
 struct FundingData {
     funding: String,
     open_interest: String,
-    prev_day_px: String,
-    day_ntl_vlm: String,
-    premium: Option<String>,
-    oracle_px: String,
-    mark_px: String,
-    mid_px: Option<String>,
-    impact_pxs: Option<Vec<String>>,
 }
 
 #[derive(Debug)]

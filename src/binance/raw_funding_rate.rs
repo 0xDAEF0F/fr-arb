@@ -1,16 +1,17 @@
 use anyhow::Result;
 use reqwest::Client;
 use serde::Deserialize;
+use serde_aux::field_attributes::deserialize_number_from_string;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BinanceIndexFundingRate {
     pub symbol: String,
-    pub index_price: String,
-    pub last_funding_rate: String,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub last_funding_rate: f64,
 }
 
-pub async fn retrieve_binance_funding_rates(
+pub async fn retrieve_binance_raw_funding_rates(
     http_client: &Client,
 ) -> Result<Vec<BinanceIndexFundingRate>> {
     let req = http_client
@@ -28,9 +29,13 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_retrieve_binance_tokens() {
+    async fn test_funding_rates() {
         let http_client = Client::new();
-        let funding_rates = retrieve_binance_funding_rates(&http_client).await.unwrap();
-        assert!(!funding_rates.is_empty());
+        let funding_rates = retrieve_binance_raw_funding_rates(&http_client)
+            .await
+            .unwrap();
+
+        println!("funding_rates len: {}", funding_rates.len());
+        println!("funding_rates {:#?}", funding_rates);
     }
 }

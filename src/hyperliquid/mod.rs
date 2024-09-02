@@ -1,1 +1,1 @@
-pub mod funding;
+pub mod hyperliquid_funding_rate;

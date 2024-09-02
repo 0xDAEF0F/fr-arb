@@ -1,4 +1,6 @@
-use crate::{binance::build_binance_tokens, hyperliquid::funding::retrieve_hl_tokens};
+use crate::{
+    binance::build_binance_tokens, hyperliquid::hyperliquid_funding_rate::retrieve_hl_tokens,
+};
 use anyhow::Result;
 use hyperliquid_rust_sdk::InfoClient;
 use std::collections::HashMap;

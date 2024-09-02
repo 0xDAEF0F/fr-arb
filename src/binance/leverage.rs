@@ -1,6 +1,7 @@
 use anyhow::Result;
 use reqwest::Client;
 use serde::Deserialize;
+use serde_aux::field_attributes::deserialize_number_from_string;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -12,7 +13,8 @@ struct Response {
 #[serde(rename_all = "camelCase")]
 pub struct TokenLeverage {
     pub symbol: String,
-    pub required_margin_percent: String,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub required_margin_percent: f64,
 }
 
 pub async fn retrieve_binance_leverage(http_client: &Client) -> Result<Vec<TokenLeverage>> {
@@ -36,6 +38,6 @@ mod tests {
     async fn test_retrieve_binance_leverage() {
         let http_client = Client::new();
         let tokens = retrieve_binance_leverage(&http_client).await.unwrap();
-        println!("{:#?}", tokens)
+        println!("{:#?}", tokens.into_iter().take(5).collect::<Vec<_>>())
     }
 }

@@ -1,23 +1,23 @@
-mod funding_info;
-mod funding_rate;
+mod binance_funding_rate;
+mod funding_intervals;
 mod leverage;
 mod open_interest;
 mod parse_symbol;
+mod raw_funding_rate;
 
 use anyhow::Result;
-use funding_info::retrieve_binance_funding_info;
-use funding_rate::retrieve_binance_funding_rates;
+use funding_intervals::retrieve_binance_funding_info;
 use leverage::retrieve_binance_leverage;
+use raw_funding_rate::retrieve_binance_raw_funding_rates;
 use reqwest::Client;
 use std::collections::HashMap;
 
 #[derive(Debug)]
 struct RawBinanceToken {
-    index_price: f64,
     symbol: String,
-    required_margin_percent: String,
+    required_margin_percent: f64,
     last_funding_rate: f64,
-    funding_interval_hours: u8,
+    funding_interval_hours: f64,
 }
 
 #[derive(Debug)]
@@ -30,7 +30,7 @@ pub struct BinanceToken {
 pub async fn build_binance_raw_tokens() -> Result<Vec<RawBinanceToken>> {
     let http_client = Client::new();
 
-    let funding_rates = retrieve_binance_funding_rates(&http_client).await?;
+    let funding_rates = retrieve_binance_raw_funding_rates(&http_client).await?;
     let funding_info = retrieve_binance_funding_info(&http_client).await?;
     let leverage_info = retrieve_binance_leverage(&http_client).await?;
 
@@ -40,11 +40,10 @@ pub async fn build_binance_raw_tokens() -> Result<Vec<RawBinanceToken>> {
         token_map.insert(
             rate.symbol.clone(),
             RawBinanceToken {
-                index_price: rate.index_price.parse()?,
                 symbol: rate.symbol.clone(),
-                required_margin_percent: "".to_string(),
-                last_funding_rate: rate.last_funding_rate.parse()?,
-                funding_interval_hours: 0,
+                required_margin_percent: 0.0,
+                last_funding_rate: rate.last_funding_rate,
+                funding_interval_hours: 0.0,
             },
         );
     }
@@ -69,8 +68,8 @@ pub async fn build_binance_raw_tokens() -> Result<Vec<RawBinanceToken>> {
         .into_iter()
         .filter(|t| t.symbol.ends_with("USDT"))
         .map(|mut t| {
-            if t.funding_interval_hours == 0 {
-                t.funding_interval_hours = 8;
+            if t.funding_interval_hours == 0.0 {
+                t.funding_interval_hours = 8.0;
             }
             t
         })
@@ -88,8 +87,7 @@ pub async fn build_binance_tokens() -> Result<Vec<BinanceToken>> {
             let pair = parse_symbol::parse_symbol(token.symbol).unwrap();
 
             let hourly_funding_rate = token.last_funding_rate / token.funding_interval_hours as f64;
-            let max_leverage =
-                (100_f64 / token.required_margin_percent.parse::<f64>().unwrap()) as u8;
+            let max_leverage = (100_f64 / token.required_margin_percent) as u8;
 
             BinanceToken {
                 name: pair.base,
