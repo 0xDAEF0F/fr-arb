@@ -2,36 +2,52 @@ use anyhow::Result;
 use reqwest::Client;
 use serde::Deserialize;
 
+use crate::util::BidAsk;
+
 #[derive(Debug, Deserialize)]
-struct ResBinanceOrderBook {
+struct BinanceOrderBook {
     bids: Vec<Vec<String>>,
+    asks: Vec<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct BinanceBid {
-    price: f64,
-    size: f64,
+pub struct BinanceBidAsk {
+    price: String,
+    size: String,
 }
 
-async fn retrieve_binance_bids(pair: String) -> Result<Vec<BinanceBid>> {
+async fn retrieve_binance_order_book(pair: String, ba: BidAsk) -> Result<Vec<BinanceBidAsk>> {
     let client = Client::new();
 
     let url = format!("https://fapi.binance.com/fapi/v1/depth?symbol={pair}");
 
     let response = client.get(&url).send().await?;
-    let orderbook: ResBinanceOrderBook = response.json().await?;
+    let orderbook: BinanceOrderBook = response.json().await?;
 
-    let bids: Vec<BinanceBid> = orderbook
-        .bids
-        .into_iter()
-        .map(|bid| {
-            let price = bid[0].parse::<f64>().unwrap();
-            let size = bid[1].parse::<f64>().unwrap();
-            BinanceBid { price, size }
-        })
-        .collect();
-
-    Ok(bids)
+    match ba {
+        BidAsk::Ask => {
+            let asks = orderbook
+                .asks
+                .into_iter()
+                .map(|a| BinanceBidAsk {
+                    price: a[0].to_string(),
+                    size: a[1].to_string(),
+                })
+                .collect();
+            return Ok(asks);
+        }
+        BidAsk::Bid => {
+            let bids = orderbook
+                .bids
+                .into_iter()
+                .map(|b| BinanceBidAsk {
+                    price: b[0].to_string(),
+                    size: b[1].to_string(),
+                })
+                .collect();
+            return Ok(bids);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -39,9 +55,9 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_retrieve_binance_bids() {
-        let pair = "BTCUSDT".to_string();
-        let result = retrieve_binance_bids(pair).await;
+    async fn test_retrieve_binance_order_book() {
+        let pair = "ETHUSDT".to_string();
+        let result = retrieve_binance_order_book(pair, BidAsk::Ask).await;
 
         println!("{:#?}", result.unwrap());
     }

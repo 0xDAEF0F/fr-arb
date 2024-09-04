@@ -1,3 +1,4 @@
+use crate::util::BidAsk;
 use anyhow::Result;
 use reqwest::Client;
 use serde::Deserialize;
@@ -13,7 +14,7 @@ struct HlBidAsk {
     sz: String,
 }
 
-async fn retrieve_hyperliquid_bids(pair: String) -> Result<Vec<HlBidAsk>> {
+async fn retrieve_hl_order_book(pair: String, ba: BidAsk) -> Result<Vec<HlBidAsk>> {
     let client = Client::new();
 
     let url = "https://api.hyperliquid.xyz/info";
@@ -31,12 +32,10 @@ async fn retrieve_hyperliquid_bids(pair: String) -> Result<Vec<HlBidAsk>> {
 
     let orderbook: ResHyperliquidOrderBook = response.json().await?;
 
-    let mut bids = Vec::new();
-    if let Some(first_level) = orderbook.levels.into_iter().next() {
-        bids = first_level;
+    match ba {
+        BidAsk::Ask => Ok(orderbook.levels.into_iter().nth(1).unwrap()),
+        BidAsk::Bid => Ok(orderbook.levels.into_iter().nth(0).unwrap()),
     }
-
-    Ok(bids)
 }
 
 #[cfg(test)]
@@ -46,7 +45,7 @@ mod tests {
     #[tokio::test]
     async fn test_retrieve_hyperliquid_bids() {
         let pair = "ETH".to_string();
-        let result = retrieve_hyperliquid_bids(pair).await.unwrap();
+        let result = retrieve_hl_order_book(pair, BidAsk::Ask).await.unwrap();
 
         println!("{:#?}", result);
     }
