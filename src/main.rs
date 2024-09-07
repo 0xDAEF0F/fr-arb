@@ -10,5 +10,7 @@ async fn main() -> Result<()> {
     dotenv::dotenv().ok();
     env_logger::init();
 
+    // load state from binance and hyperliquid
+
     Ok(())
 }

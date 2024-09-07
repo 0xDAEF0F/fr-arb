@@ -98,8 +98,7 @@ mod tests {
             .await
             .unwrap();
 
-        // quoting 100k USD
-        let avg_price = calculate_hl_execution_price(result, 50_000.0);
+        let avg_price = calculate_hl_execution_price(result, 10_000.0);
 
         println!("average execution price: {:?}", avg_price);
     }

@@ -123,7 +123,7 @@ mod tests {
             .await
             .unwrap();
 
-        let avg_price = calculate_binance_execution_price(result, 50_000.0);
+        let avg_price = calculate_binance_execution_price(result, 10_000.0);
 
         println!("average execution price: {:?}", avg_price);
     }
