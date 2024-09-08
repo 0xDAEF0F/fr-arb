@@ -4,14 +4,14 @@ use reqwest::Client;
 use serde::Deserialize;
 use serde_json::json;
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct HlAccountRes {
     cross_margin_summary: CrossMarginSummary,
     asset_positions: Vec<AssetPosition>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct CrossMarginSummary {
     account_value: String,
@@ -19,12 +19,13 @@ struct CrossMarginSummary {
     total_margin_used: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize, Debug)]
 struct AssetPosition {
+    #[serde(flatten)]
     position: Position,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct Position {
     coin: String,
