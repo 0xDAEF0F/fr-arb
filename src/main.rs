@@ -1,5 +1,6 @@
 mod binance;
 mod compare_funding_rates;
+mod constants;
 mod hyperliquid;
 mod util;
 
