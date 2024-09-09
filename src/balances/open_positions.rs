@@ -10,10 +10,12 @@ use crate::{
 };
 use anyhow::Result;
 use hyperliquid_rust_sdk::InfoClient;
+use prettytable::{Cell, Row, Table};
 use reqwest::Client;
 
 #[derive(Debug)]
 pub struct Position {
+    pub platform: String,
     pub coin: String,      // without quote
     pub direction: String, // short || long
     pub size: f64,         // amount of tokens/cryptocurrency
@@ -49,6 +51,7 @@ async fn retrieve_account_open_positions() -> Result<Vec<Position>> {
                 + p.unrealized_profit.parse::<f64>().unwrap())
                 / size;
             Position {
+                platform: "binance".to_string(),
                 coin,
                 direction,
                 entry_price,
@@ -78,6 +81,7 @@ async fn retrieve_account_open_positions() -> Result<Vec<Position>> {
             let size = p.position.szi.parse::<f64>().unwrap().abs();
             let entry_price = p.position.entry_px.parse::<f64>().unwrap();
             Position {
+                platform: "hyperliquid".to_string(),
                 coin,
                 direction,
                 entry_price,
@@ -94,6 +98,37 @@ async fn retrieve_account_open_positions() -> Result<Vec<Position>> {
     let total_positions = binance_positions;
 
     Ok(total_positions)
+}
+
+pub async fn build_account_open_positions_table() -> Result<String> {
+    let open_positions = retrieve_account_open_positions().await?;
+
+    let mut table = Table::new();
+
+    table.add_row(Row::new(vec![Cell::new("Open Positions")]));
+    table.add_row(Row::new(vec![
+        Cell::new("Platform"),
+        Cell::new("Coin"),
+        Cell::new("Direction"),
+        Cell::new("size (amt tokens)"),
+        Cell::new("entry price"),
+        Cell::new("pnl"),
+        Cell::new("funding rate (annualized)"),
+    ]));
+
+    for position in open_positions {
+        table.add_row(Row::new(vec![
+            Cell::new(position.platform.as_str()),
+            Cell::new(position.coin.as_str()),
+            Cell::new(position.direction.as_str()),
+            Cell::new(position.size.to_string().as_str()),
+            Cell::new(position.entry_price.to_string().as_str()),
+            Cell::new(position.pnl.to_string().as_str()),
+            Cell::new(position.funding_rate.to_string().as_str()),
+        ]));
+    }
+
+    Ok(table.to_string())
 }
 
 #[cfg(test)]
