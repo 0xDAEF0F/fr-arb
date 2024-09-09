@@ -1,4 +1,4 @@
-use crate::balance::build_account_balance_table;
+use crate::balances::build_account_balance_table;
 use anyhow::Result;
 use std::io::Write;
 

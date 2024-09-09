@@ -1,3 +1,4 @@
+use anyhow::Result;
 use hyperliquid_rust_sdk::InfoClient;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -31,17 +32,18 @@ pub struct HyperliquidToken {
     pub hourly_funding_rate: f64,
 }
 
-pub async fn retrieve_hl_tokens(info_client: &InfoClient) -> Vec<HyperliquidToken> {
+pub async fn retrieve_hl_hourly_funding_rates(
+    info_client: &InfoClient,
+) -> Result<Vec<HyperliquidToken>> {
     let data = json!({
         "type": "metaAndAssetCtxs"
     });
     let request = info_client
         .http_client
         .post("/info", data.to_string())
-        .await
-        .unwrap();
+        .await?;
 
-    let ds: Response = serde_json::from_str(&request).unwrap();
+    let ds: Response = serde_json::from_str(&request)?;
 
     let tokens = ds.0.universe;
     let fr = ds.1;
@@ -49,7 +51,7 @@ pub async fn retrieve_hl_tokens(info_client: &InfoClient) -> Vec<HyperliquidToke
     let mut hyperliquid_tokens = vec![];
 
     for (token, funding_data) in tokens.into_iter().zip(fr.into_iter()) {
-        let funding_rate: f64 = funding_data.funding.parse().unwrap();
+        let funding_rate: f64 = funding_data.funding.parse()?;
 
         let hyperliquid_token = HyperliquidToken {
             name: token.name,
@@ -60,7 +62,7 @@ pub async fn retrieve_hl_tokens(info_client: &InfoClient) -> Vec<HyperliquidToke
         hyperliquid_tokens.push(hyperliquid_token);
     }
 
-    hyperliquid_tokens
+    Ok(hyperliquid_tokens)
 }
 
 #[cfg(test)]
@@ -68,29 +70,31 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn get_all_hl_tokens() {
+    async fn get_all_hl_tokens() -> Result<()> {
         let info_client = InfoClient::new(None, None).await.unwrap();
 
-        let tokens = retrieve_hl_tokens(&info_client).await;
+        let tokens = retrieve_hl_hourly_funding_rates(&info_client).await?;
 
         println!("{:#?}", tokens);
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn get_top_three_hl_fr() {
+    async fn get_specific_hl_fr() -> Result<()> {
         let info_client = InfoClient::new(None, None).await.unwrap();
 
-        let mut tokens = retrieve_hl_tokens(&info_client).await;
+        let tokens = retrieve_hl_hourly_funding_rates(&info_client).await?;
 
-        tokens.sort_by(|a, b| {
-            b.hourly_funding_rate
-                .abs()
-                .partial_cmp(&a.hourly_funding_rate.abs())
-                .unwrap()
-        });
+        let token: Vec<_> = tokens
+            .into_iter()
+            .filter(|t| t.name == "BTC".to_string())
+            .collect();
 
-        let top_three: Vec<_> = tokens.into_iter().take(3).collect();
+        let token = &token[0];
 
-        println!("{:#?}", top_three);
+        println!("{token:#?}");
+
+        Ok(())
     }
 }

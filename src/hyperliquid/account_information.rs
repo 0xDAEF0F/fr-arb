@@ -8,7 +8,7 @@ use serde_json::json;
 #[serde(rename_all = "camelCase")]
 pub struct HlAccountRes {
     pub cross_margin_summary: CrossMarginSummary,
-    asset_positions: Vec<AssetPosition>,
+    pub asset_positions: Vec<AssetPosition>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -20,17 +20,18 @@ pub struct CrossMarginSummary {
 }
 
 #[derive(Deserialize, Debug)]
-struct AssetPosition {
-    position: Position,
+pub struct AssetPosition {
+    pub position: Position,
 }
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-struct Position {
-    coin: String,
-    szi: String, // negative == Short and positive == Long
-    entry_px: String,
-    position_value: String,
+pub struct Position {
+    pub coin: String,
+    pub szi: String, // negative == Short and positive == Long
+    pub entry_px: String,
+    pub position_value: String,
+    pub unrealized_pnl: String,
 }
 
 pub async fn retrieve_hl_account_info() -> Result<HlAccountRes> {

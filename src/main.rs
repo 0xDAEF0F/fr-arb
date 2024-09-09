@@ -1,4 +1,4 @@
-mod balance;
+mod balances;
 mod binance;
 mod command_handler;
 mod compare_funding_rates;
