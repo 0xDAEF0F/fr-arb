@@ -1,4 +1,4 @@
-use super::{leverage::retrieve_binance_leverage, parse_symbol::parse_symbol};
+use super::leverage::retrieve_binance_leverage;
 use crate::binance::{
     funding_intervals::retrieve_binance_funding_info,
     raw_funding_rate::retrieve_binance_raw_funding_rates,
@@ -48,13 +48,10 @@ pub async fn retrieve_binance_hourly_funding_rates(
     let hourly_funding_rates = hourly_funding_rates
         .into_iter()
         .filter(|t| t.name.ends_with("USDT"))
-        .map(|t| {
-            let name_without_usdt = parse_symbol(t.name).unwrap().base;
-            BinanceHourlyFundingRate {
-                name: name_without_usdt,
-                hourly_funding_rate: t.hourly_funding_rate,
-                max_leverage: t.max_leverage,
-            }
+        .map(|t| BinanceHourlyFundingRate {
+            name: t.name.trim_end_matches("USDT").to_string(),
+            hourly_funding_rate: t.hourly_funding_rate,
+            max_leverage: t.max_leverage,
         })
         .collect();
 
@@ -71,14 +68,14 @@ mod tests {
         let hourly_funding_rates = retrieve_binance_hourly_funding_rates(&client)
             .await
             .unwrap();
-        println!(
-            "{:#?}",
-            hourly_funding_rates.iter().find(|h| h.name == "ZRO")
-        );
-        println!(
-            "hourly_funding_rates len: {:#?}",
-            hourly_funding_rates.len()
-        );
-        // println!("{:#?}", hourly_funding_rates);
+        // println!(
+        //     "{:#?}",
+        //     hourly_funding_rates.iter().find(|h| h.name == "ZRO")
+        // );
+        // println!(
+        //     "hourly_funding_rates len: {:#?}",
+        //     hourly_funding_rates.len()
+        // );
+        println!("{:#?}", hourly_funding_rates);
     }
 }

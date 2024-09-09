@@ -10,7 +10,7 @@ pub struct BinanceAccountRes {
     total_unrealized_profit: String,
     pub total_margin_balance: String,
     assets: Vec<Asset>,
-    positions: Vec<Position>,
+    pub positions: Vec<Position>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -24,12 +24,12 @@ struct Asset {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct Position {
-    symbol: String,
-    position_side: String, // SHORT || LONG
-    position_amt: String,
-    unrealized_profit: String,
-    notional: String,
+pub struct Position {
+    pub symbol: String,
+    pub position_side: String, // SHORT || LONG
+    pub position_amt: String,
+    pub unrealized_profit: String,
+    pub notional: String,
 }
 
 pub async fn retrieve_binance_account_info() -> Result<BinanceAccountRes> {
