@@ -6,22 +6,21 @@ use serde_json::json;
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-struct HlAccountRes {
-    cross_margin_summary: CrossMarginSummary,
+pub struct HlAccountRes {
+    pub cross_margin_summary: CrossMarginSummary,
     asset_positions: Vec<AssetPosition>,
 }
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-struct CrossMarginSummary {
-    account_value: String,
+pub struct CrossMarginSummary {
+    pub account_value: String,
     total_ntl_pos: String, // notional position
     total_margin_used: String,
 }
 
 #[derive(Deserialize, Debug)]
 struct AssetPosition {
-    #[serde(flatten)]
     position: Position,
 }
 

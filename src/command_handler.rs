@@ -1,10 +1,12 @@
+use crate::balance::build_account_balance_table;
 use anyhow::Result;
 use std::io::Write;
 
-pub fn handle_command(line: String, stdout: &mut impl Write) -> Result<()> {
+pub async fn handle_command(line: String, stdout: &mut impl Write) -> Result<()> {
     match line.as_str() {
         "balance" => {
-            writeln!(stdout, "Balance is 50")?;
+            let formatted_table = build_account_balance_table().await?;
+            writeln!(stdout, "{}", formatted_table)?;
         }
         _ => {}
     }

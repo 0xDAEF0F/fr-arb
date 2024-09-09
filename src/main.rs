@@ -1,3 +1,4 @@
+mod balance;
 mod binance;
 mod command_handler;
 mod compare_funding_rates;
@@ -26,7 +27,7 @@ async fn main() -> Result<()> {
             }
             cmd = rl.readline() => match cmd {
                 Ok(ReadlineEvent::Line(line)) => {
-                   handle_command(line, &mut stdout)?;
+                   handle_command(line, &mut stdout).await?;
                 }
                 Ok(ReadlineEvent::Eof) => {
                     writeln!(stdout, "<EOF>")?;

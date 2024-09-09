@@ -5,10 +5,10 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct BinanceAccountRes {
-    total_wallet_balance: String,
+pub struct BinanceAccountRes {
+    pub total_wallet_balance: String,
     total_unrealized_profit: String,
-    total_margin_balance: String,
+    pub total_margin_balance: String,
     assets: Vec<Asset>,
     positions: Vec<Position>,
 }
@@ -26,7 +26,7 @@ struct Asset {
 #[serde(rename_all = "camelCase")]
 struct Position {
     symbol: String,
-    position_side: String,
+    position_side: String, // SHORT || LONG
     position_amt: String,
     unrealized_profit: String,
     notional: String,
