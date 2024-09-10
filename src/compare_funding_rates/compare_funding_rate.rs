@@ -6,14 +6,14 @@ use reqwest::Client;
 use tokio::try_join;
 
 #[derive(Debug)]
-struct TokenComparison {
-    name: String,
-    binance_funding_rate: f64,
-    hyperliquid_funding_rate: f64,
-    funding_rate_difference: f64,
+pub struct JointFundingRate {
+    pub name: String,
+    pub binance_funding_rate: f64,
+    pub hyperliquid_funding_rate: f64,
+    pub funding_rate_difference: f64,
 }
 
-pub async fn compare_funding_rates() -> Result<Vec<TokenComparison>> {
+pub async fn compare_funding_rates() -> Result<Vec<JointFundingRate>> {
     let http_client = Client::new();
     let info_client = InfoClient::new(None, None).await?;
 
@@ -22,11 +22,11 @@ pub async fn compare_funding_rates() -> Result<Vec<TokenComparison>> {
         retrieve_hl_hourly_funding_rates(&info_client)
     )?;
 
-    let mut token_vec: Vec<TokenComparison> = vec![];
+    let mut token_vec: Vec<JointFundingRate> = vec![];
 
     for b_token in binance_tokens {
         if let Some(hl_token) = hyperliquid_tokens.iter().find(|t| t.name == b_token.name) {
-            let token_comparison = TokenComparison {
+            let token_comparison = JointFundingRate {
                 name: b_token.name.clone(),
                 binance_funding_rate: b_token.hourly_funding_rate,
                 hyperliquid_funding_rate: hl_token.hourly_funding_rate,

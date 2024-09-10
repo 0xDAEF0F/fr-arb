@@ -1,4 +1,5 @@
 use crate::balances::{build_account_balance_table, build_account_open_positions_table};
+use crate::compare_funding_rates::build_funding_rate_table;
 use anyhow::Result;
 use std::io::Write;
 use tokio::try_join;
@@ -14,7 +15,8 @@ pub async fn handle_command(line: String, stdout: &mut impl Write) -> Result<()>
             writeln!(stdout, "{}", open_positions)?;
         }
         "funding rates" => {
-            //
+            let funding_rates_table = build_funding_rate_table().await?;
+            writeln!(stdout, "{}", funding_rates_table)?;
         }
         _ => {}
     }
