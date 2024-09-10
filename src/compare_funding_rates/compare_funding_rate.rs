@@ -3,72 +3,49 @@ use crate::hyperliquid::hyperliquid_funding_rate::retrieve_hl_hourly_funding_rat
 use anyhow::Result;
 use hyperliquid_rust_sdk::InfoClient;
 use reqwest::Client;
-use std::collections::HashMap;
+use tokio::try_join;
 
 #[derive(Debug)]
 struct TokenComparison {
     name: String,
-    binance_funding_rate: Option<f64>,
-    hyperliquid_funding_rate: Option<f64>,
-    funding_rate_difference: Option<f64>,
+    binance_funding_rate: f64,
+    hyperliquid_funding_rate: f64,
+    funding_rate_difference: f64,
 }
 
 pub async fn compare_funding_rates() -> Result<Vec<TokenComparison>> {
     let http_client = Client::new();
-    let binance_tokens = retrieve_binance_hourly_funding_rates(&http_client).await?;
-
     let info_client = InfoClient::new(None, None).await?;
-    let hyperliquid_tokens = retrieve_hl_hourly_funding_rates(&info_client).await?;
 
-    let mut token_map: HashMap<String, TokenComparison> = HashMap::new();
+    let (binance_tokens, hyperliquid_tokens) = try_join!(
+        retrieve_binance_hourly_funding_rates(&http_client),
+        retrieve_hl_hourly_funding_rates(&info_client)
+    )?;
 
-    for token in binance_tokens {
-        token_map.insert(
-            token.name.clone(),
-            TokenComparison {
-                name: token.name,
-                binance_funding_rate: Some(token.hourly_funding_rate),
-                hyperliquid_funding_rate: None,
-                funding_rate_difference: None,
-            },
-        );
+    let mut token_vec: Vec<TokenComparison> = vec![];
+
+    for b_token in binance_tokens {
+        if let Some(hl_token) = hyperliquid_tokens.iter().find(|t| t.name == b_token.name) {
+            let token_comparison = TokenComparison {
+                name: b_token.name.clone(),
+                binance_funding_rate: b_token.hourly_funding_rate,
+                hyperliquid_funding_rate: hl_token.hourly_funding_rate,
+                funding_rate_difference: calculate_effective_rate(
+                    b_token.hourly_funding_rate,
+                    hl_token.hourly_funding_rate,
+                ),
+            };
+            token_vec.push(token_comparison);
+        };
     }
 
-    for token in hyperliquid_tokens {
-        if let Some(comparison) = token_map.get_mut(&token.name) {
-            comparison.hyperliquid_funding_rate = Some(token.hourly_funding_rate);
-            comparison.funding_rate_difference = Some(calculate_effective_rate(
-                comparison.binance_funding_rate.unwrap(),
-                token.hourly_funding_rate,
-            ));
-        } else {
-            token_map.insert(
-                token.name.clone(),
-                TokenComparison {
-                    name: token.name,
-                    binance_funding_rate: None,
-                    hyperliquid_funding_rate: Some(token.hourly_funding_rate),
-                    funding_rate_difference: None,
-                },
-            );
-        }
-    }
-
-    let comparisons: Vec<TokenComparison> = token_map.into_values().collect();
-    let mut comparisons: Vec<TokenComparison> = comparisons
-        .into_iter()
-        .filter(|t| t.funding_rate_difference.is_some())
-        .collect();
-
-    // Sort comparisons by funding_rate_difference in descending order
-    comparisons.sort_by(|a, b| {
+    token_vec.sort_by(|a, b| {
         b.funding_rate_difference
-            .unwrap_or(0.0)
-            .partial_cmp(&a.funding_rate_difference.unwrap_or(0.0))
+            .partial_cmp(&a.funding_rate_difference)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    Ok(comparisons)
+    Ok(token_vec)
 }
 
 fn calculate_effective_rate(rate1: f64, rate2: f64) -> f64 {
