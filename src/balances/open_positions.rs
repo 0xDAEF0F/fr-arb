@@ -10,6 +10,7 @@ use crate::{
 };
 use anyhow::Result;
 use hyperliquid_rust_sdk::InfoClient;
+use numfmt::Formatter;
 use prettytable::{Cell, Row, Table};
 use reqwest::Client;
 use tokio::try_join;
@@ -107,26 +108,32 @@ pub async fn build_account_open_positions_table() -> Result<String> {
 
     let mut table = Table::new();
 
-    table.add_row(Row::new(vec![Cell::new("Open Positions")]));
+    table.add_row(Row::new(vec![Cell::new("open positions")]));
     table.add_row(Row::new(vec![
-        Cell::new("Platform"),
-        Cell::new("Coin"),
-        Cell::new("Direction"),
+        Cell::new("platform"),
+        Cell::new("coin"),
+        Cell::new("direction"),
         Cell::new("size (amt tokens)"),
         Cell::new("entry price"),
         Cell::new("pnl"),
-        Cell::new("funding rate (annualized)"),
+        Cell::new("funding rate (apr)"),
     ]));
 
+    let mut f = Formatter::new()
+        .precision(numfmt::Precision::Decimals(2))
+        .suffix("%")?;
+
     for position in open_positions {
+        let fmt_annualized_fr = f.fmt2(position.funding_rate * 100.0);
+        let fmt_entry_price = format!("${}", (position.entry_price * 100.0).round() / 100.0);
         table.add_row(Row::new(vec![
             Cell::new(position.platform.as_str()),
             Cell::new(position.coin.as_str()),
             Cell::new(position.direction.as_str()),
             Cell::new(position.size.to_string().as_str()),
-            Cell::new(position.entry_price.to_string().as_str()),
+            Cell::new(fmt_entry_price.as_str()),
             Cell::new(position.pnl.to_string().as_str()),
-            Cell::new(position.funding_rate.to_string().as_str()),
+            Cell::new(fmt_annualized_fr),
         ]));
     }
 

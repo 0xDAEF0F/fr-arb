@@ -36,17 +36,17 @@ pub async fn build_account_balance_table() -> Result<String> {
     let b_balance = balances.binance.parse::<f64>()?;
     let hl_balance = balances.hyperliquid.parse::<f64>()?;
 
-    table.add_row(Row::new(vec![Cell::new("Balances")]));
+    table.add_row(Row::new(vec![Cell::new("balances")]));
     table.add_row(Row::new(vec![
-        Cell::new("Binance"),
+        Cell::new("binance"),
         Cell::new(f.fmt2(b_balance)),
     ]));
     table.add_row(Row::new(vec![
-        Cell::new("Hyperliquid"),
+        Cell::new("hyperliquid"),
         Cell::new(f.fmt2(hl_balance)),
     ]));
     table.add_row(Row::new(vec![
-        Cell::new("Total"),
+        Cell::new("total"),
         Cell::new(f.fmt2(b_balance + hl_balance)), // total balance
     ]));
 

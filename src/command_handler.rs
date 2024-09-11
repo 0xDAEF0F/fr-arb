@@ -18,6 +18,15 @@ pub async fn handle_command(line: String, stdout: &mut impl Write) -> Result<()>
             let funding_rates_table = build_funding_rate_table().await?;
             writeln!(stdout, "{}", funding_rates_table)?;
         }
+        hr if hr.starts_with("history rates") => {
+            let coin = hr.trim_start_matches("history rates").trim().to_uppercase();
+            if coin.is_empty() {
+                writeln!(stdout, "Please specify a coin, e.g., 'history rates BTC'")?;
+                return Ok(());
+            }
+            // give out some averages of the funding rates history
+            writeln!(stdout, "{}", coin)?;
+        }
         _ => {}
     }
     Ok(())
