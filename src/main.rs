@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
             }
             cmd = rl.readline() => match cmd {
                 Ok(ReadlineEvent::Line(line)) => {
-                   handle_command(line, &mut stdout).await?;
+                   handle_command(line, &mut rl, &mut stdout).await?;
                 }
                 Ok(ReadlineEvent::Eof) => {
                     writeln!(stdout, "<EOF>")?;
