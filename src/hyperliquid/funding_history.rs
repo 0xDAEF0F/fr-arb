@@ -38,7 +38,7 @@ async fn retrieve_hl_funding_history(coin: String) -> Result<Vec<FundingHistory>
 
 /// `coin` without 'quote'. e.g., BTC
 /// `days` > 0 <= 15
-async fn retrieve_hl_fh_avg(coin: String, past_days: u16) -> Result<String> {
+pub async fn retrieve_hl_fh_avg(coin: String, past_days: u16) -> Result<String> {
     if past_days > 15 {
         bail!("can only peek up to 15 days")
     } else if past_days == 0 {

@@ -6,3 +6,5 @@ mod leverage;
 mod open_interest;
 mod orderbook;
 mod raw_funding_rate;
+
+pub use funding_history::retrieve_binance_fh_avg;
