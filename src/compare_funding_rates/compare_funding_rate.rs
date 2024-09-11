@@ -1,5 +1,5 @@
-use crate::binance::binance_funding_rate::retrieve_binance_hourly_funding_rates;
-use crate::hyperliquid::hyperliquid_funding_rate::retrieve_hl_hourly_funding_rates;
+use crate::binance::funding_rates::retrieve_binance_hourly_funding_rates;
+use crate::hyperliquid::funding_rates::retrieve_hl_hourly_funding_rates;
 use anyhow::Result;
 use hyperliquid_rust_sdk::InfoClient;
 use reqwest::Client;

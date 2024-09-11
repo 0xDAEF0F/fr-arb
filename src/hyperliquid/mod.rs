@@ -1,3 +1,4 @@
 pub mod account_information;
-pub mod hyperliquid_funding_rate;
+mod funding_history;
+pub mod funding_rates;
 mod orderbook;

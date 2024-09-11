@@ -1,6 +1,6 @@
 pub mod account_information;
-pub mod binance_funding_rate;
 mod funding_intervals;
+pub mod funding_rates;
 mod leverage;
 mod open_interest;
 mod orderbook;

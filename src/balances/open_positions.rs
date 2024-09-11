@@ -1,11 +1,11 @@
 use crate::{
     binance::{
         account_information::retrieve_binance_account_info,
-        binance_funding_rate::retrieve_binance_hourly_funding_rates,
+        funding_rates::retrieve_binance_hourly_funding_rates,
     },
     hyperliquid::{
         account_information::retrieve_hl_account_info,
-        hyperliquid_funding_rate::retrieve_hl_hourly_funding_rates,
+        funding_rates::retrieve_hl_hourly_funding_rates,
     },
 };
 use anyhow::Result;
