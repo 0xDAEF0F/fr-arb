@@ -1,7 +1,9 @@
 use crate::binance::account_information::retrieve_binance_account_info;
 use crate::hyperliquid::account_information::retrieve_hl_account_info;
 use anyhow::Result;
+use numfmt::{Formatter, Precision::Decimals};
 use prettytable::{Cell, Row, Table};
+use std::fmt::Debug;
 
 #[derive(Debug)]
 pub struct Balance {
@@ -26,26 +28,26 @@ pub async fn build_account_balance_table() -> Result<String> {
 
     let mut table = Table::new();
 
-    let b_balance = (balances.binance.parse::<f64>()? * 100.0).round() / 100.0;
-    let b_bal = format!("$ {b_balance}");
+    let mut f = Formatter::new()
+        .separator(',')?
+        .prefix("$")?
+        .precision(Decimals(2));
 
-    let hl_balance = (balances.hyperliquid.parse::<f64>()? * 100.0).round() / 100.0;
-    let hl_bal = format!("$ {hl_balance}");
-
-    let total_bal = format!("$ {}", b_balance + hl_balance);
+    let b_balance = balances.binance.parse::<f64>()?;
+    let hl_balance = balances.hyperliquid.parse::<f64>()?;
 
     table.add_row(Row::new(vec![Cell::new("Balances")]));
     table.add_row(Row::new(vec![
         Cell::new("Binance"),
-        Cell::new(b_bal.as_str()),
+        Cell::new(f.fmt2(b_balance)),
     ]));
     table.add_row(Row::new(vec![
         Cell::new("Hyperliquid"),
-        Cell::new(hl_bal.as_str()),
+        Cell::new(f.fmt2(hl_balance)),
     ]));
     table.add_row(Row::new(vec![
         Cell::new("Total"),
-        Cell::new(total_bal.as_str()),
+        Cell::new(f.fmt2(b_balance + hl_balance)), // total balance
     ]));
 
     Ok(table.to_string())
