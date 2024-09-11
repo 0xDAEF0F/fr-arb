@@ -23,22 +23,29 @@ async fn retrieve_account_balance() -> Result<Balance> {
 
 pub async fn build_account_balance_table() -> Result<String> {
     let balances = retrieve_account_balance().await?;
-    let total_balance = balances.binance.parse::<f64>()? + balances.hyperliquid.parse::<f64>()?;
 
     let mut table = Table::new();
+
+    let b_balance = (balances.binance.parse::<f64>()? * 100.0).round() / 100.0;
+    let b_bal = format!("$ {b_balance}");
+
+    let hl_balance = (balances.hyperliquid.parse::<f64>()? * 100.0).round() / 100.0;
+    let hl_bal = format!("$ {hl_balance}");
+
+    let total_bal = format!("$ {}", b_balance + hl_balance);
 
     table.add_row(Row::new(vec![Cell::new("Balances")]));
     table.add_row(Row::new(vec![
         Cell::new("Binance"),
-        Cell::new(balances.binance.as_str()),
+        Cell::new(b_bal.as_str()),
     ]));
     table.add_row(Row::new(vec![
         Cell::new("Hyperliquid"),
-        Cell::new(balances.hyperliquid.as_str()),
+        Cell::new(hl_bal.as_str()),
     ]));
     table.add_row(Row::new(vec![
         Cell::new("Total"),
-        Cell::new(&total_balance.to_string()),
+        Cell::new(total_bal.as_str()),
     ]));
 
     Ok(table.to_string())
