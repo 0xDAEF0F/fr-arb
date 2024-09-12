@@ -30,6 +30,7 @@ pub struct HyperliquidToken {
     pub name: String,
     pub max_leverage: u8,
     pub hourly_funding_rate: f64,
+    pub open_interest: String,
 }
 
 pub async fn retrieve_hl_hourly_funding_rates(
@@ -57,6 +58,7 @@ pub async fn retrieve_hl_hourly_funding_rates(
             name: token.name,
             max_leverage: token.max_leverage,
             hourly_funding_rate: funding_rate,
+            open_interest: funding_data.open_interest,
         };
 
         hyperliquid_tokens.push(hyperliquid_token);

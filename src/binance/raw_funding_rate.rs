@@ -9,6 +9,8 @@ pub struct BinanceIndexFundingRate {
     pub symbol: String,
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub last_funding_rate: f64,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub mark_price: f64,
 }
 
 pub async fn retrieve_binance_raw_funding_rates(

@@ -8,3 +8,4 @@ mod orderbook;
 mod raw_funding_rate;
 
 pub use funding_history::retrieve_binance_fh_avg;
+pub use open_interest::retrieve_token_open_interest;
