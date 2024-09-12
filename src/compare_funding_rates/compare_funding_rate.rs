@@ -1,5 +1,6 @@
 use crate::binance::funding_rates::retrieve_binance_hourly_funding_rates;
 use crate::hyperliquid::funding_rates::retrieve_hl_hourly_funding_rates;
+use crate::util::calculate_effective_rate;
 use anyhow::Result;
 use hyperliquid_rust_sdk::InfoClient;
 use reqwest::Client;
@@ -46,14 +47,6 @@ pub async fn compare_funding_rates() -> Result<Vec<JointFundingRate>> {
     });
 
     Ok(token_vec)
-}
-
-fn calculate_effective_rate(rate1: f64, rate2: f64) -> f64 {
-    if rate1.signum() != rate2.signum() {
-        rate1.abs() + rate2.abs()
-    } else {
-        rate1.abs().max(rate2.abs()) - rate1.abs().min(rate2.abs())
-    }
 }
 
 #[cfg(test)]

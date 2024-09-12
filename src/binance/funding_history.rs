@@ -3,6 +3,8 @@ use numfmt::Formatter;
 use reqwest::Client;
 use serde::Deserialize;
 
+use crate::constants::MAX_DAYS_QUERY_FUNDING_HISTORY;
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FundingHistory {
@@ -27,10 +29,11 @@ async fn retrieve_binance_funding_history(coin: String) -> Result<Vec<FundingHis
 }
 
 /// `coin` without 'quote'. e.g., BTC
-/// `days` > 0 <= 15
-pub async fn retrieve_binance_fh_avg(coin: String, past_days: u16) -> Result<String> {
-    if past_days > 15 {
-        bail!("can only peek up to 15 days")
+/// `days` > 0 <= `MAX_DAYS_QUERY_FUNDING_HISTORY`
+/// returns annualized funding history average
+pub async fn retrieve_binance_fh_avg(coin: String, past_days: u16) -> Result<f64> {
+    if past_days > MAX_DAYS_QUERY_FUNDING_HISTORY {
+        bail!("can only peek up {} days", MAX_DAYS_QUERY_FUNDING_HISTORY)
     } else if past_days == 0 {
         bail!("min 1 days")
     }
@@ -49,12 +52,6 @@ pub async fn retrieve_binance_fh_avg(coin: String, past_days: u16) -> Result<Str
         .sum();
 
     let mean_fr = (sum / f64::from(past_days * take)) * 24.0 * 365.0 * 100.0;
-
-    let mut f = Formatter::new()
-        .precision(numfmt::Precision::Decimals(2))
-        .suffix("%")?;
-
-    let mean_fr = f.fmt2(mean_fr).to_string();
 
     Ok(mean_fr)
 }
