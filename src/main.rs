@@ -5,6 +5,7 @@ mod compare_funding_rates;
 mod constants;
 mod funding_history;
 mod hyperliquid;
+mod quote;
 mod util;
 
 use anyhow::Result;
@@ -23,7 +24,7 @@ async fn main() -> Result<()> {
 
     loop {
         tokio::select! {
-            _ = sleep(Duration::from_secs(5)) => {
+            _ = sleep(Duration::from_secs(60)) => {
                 writeln!(stdout, "message received")?;
             }
             cmd = rl.readline() => match cmd {

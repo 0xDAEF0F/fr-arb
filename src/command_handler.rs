@@ -61,6 +61,13 @@ about it's funding rate? (average rate)"#,
                 writeln!(stdout, "{}", table_str)?;
             }
         }
+        // Find Out Funding Rate Arbitrage Cost to Enter Into a Token
+        cost if cost.starts_with("cost") => {
+            let parts: Vec<&str> = cost.split_whitespace().collect();
+
+            let token = parts[1].to_uppercase();
+            let amount: f64 = parts[2].parse()?;
+        }
         _ => {}
     }
     Ok(())

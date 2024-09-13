@@ -7,9 +7,8 @@ pub fn generate_hmac_signature(query_params: Option<String>) -> Result<String> {
 
     let mut mac = Hmac::<Sha256>::new_from_slice(binance_secret.as_bytes())?;
 
-    match query_params {
-        Some(qp) => mac.update(qp.as_bytes()),
-        None => {}
+    if let Some(qp) = query_params {
+        mac.update(qp.as_bytes())
     }
 
     let result = mac.finalize();
