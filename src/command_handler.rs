@@ -1,10 +1,11 @@
 use crate::balances::{build_account_balance_table, build_account_open_positions_table};
-use crate::binance::retrieve_binance_fh_avg;
+use crate::binance::{retrieve_binance_fh_avg, retrieve_binance_order_book};
 use crate::compare_funding_rates::{build_funding_rate_table, compare_funding_rates};
 use crate::constants::MAX_DAYS_QUERY_FUNDING_HISTORY;
-use crate::funding_history::build_avg_fh_table;
-use crate::hyperliquid::retrieve_hl_fh_avg;
-use crate::util::calculate_effective_rate;
+use crate::funding_history_table::build_avg_fh_table;
+use crate::hyperliquid::{retrieve_hl_fh_avg, retrieve_hl_order_book};
+use crate::quote::retrieve_quote;
+use crate::util::{calculate_effective_rate, determine_short_based_on_fr, BidAsk, Platform};
 use anyhow::Result;
 use rustyline_async::{Readline, ReadlineEvent};
 use std::io::Write;
@@ -62,8 +63,8 @@ about it's funding rate? (average rate)"#,
             }
         }
         // Find Out Funding Rate Arbitrage Cost to Enter Into a Token
-        cost if cost.starts_with("cost") => {
-            let parts: Vec<&str> = cost.split_whitespace().collect();
+        quote if quote.starts_with("quote") => {
+            let parts: Vec<&str> = quote.split_whitespace().collect();
 
             let token = parts[1].to_uppercase();
             let amount: f64 = parts[2].parse()?;
@@ -74,6 +75,43 @@ about it's funding rate? (average rate)"#,
                 .find(|jfr| jfr.name == token)
                 .expect("token must be in joint funding rates");
 
+            let platform = determine_short_based_on_fr(jfr);
+
+            let (short_orderbook, long_orderbook) = match platform {
+                Platform::Binance => (
+                    retrieve_binance_order_book(format!("{token}USDT"), BidAsk::Bid).await?,
+                    retrieve_hl_order_book(token.clone(), BidAsk::Ask).await?,
+                ),
+                Platform::Hyperliquid => (
+                    retrieve_hl_order_book(token.clone(), BidAsk::Bid).await?,
+                    retrieve_binance_order_book(format!("{token}USDT"), BidAsk::Ask).await?,
+                ),
+            };
+
+            let quote_a = retrieve_quote(short_orderbook, amount / 2.0)?;
+            // writeln!(stdout, "quote_a: {:#?}", quote_a)?;
+            let quote_b = retrieve_quote(long_orderbook, amount / 2.0)?;
+            // writeln!(stdout, "quote_b: {:#?}", quote_b)?;
+
+            let slippage_bips = (quote_a.slippage + quote_b.slippage) * 10_000.0;
+            let platform_fees_bips = (quote_a.platform_fees + quote_b.platform_fees) * 10_000.0;
+
+            let short_execution_price = quote_a.execution_price;
+            let long_execution_price = quote_b.execution_price;
+
+            writeln!(stdout, "slippage: {}", slippage_bips)?;
+            writeln!(stdout, "platform fees: {}", platform_fees_bips)?;
+            writeln!(
+                stdout,
+                "total fees (bips): {}",
+                slippage_bips + platform_fees_bips
+            )?;
+
+            writeln!(
+                stdout,
+                "short price {:?}: {} — long price {:?}: {}",
+                quote_a.platform, short_execution_price, quote_b.platform, long_execution_price
+            )?;
         }
         _ => {}
     }

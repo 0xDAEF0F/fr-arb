@@ -1,5 +1,6 @@
 use crate::util::BidAsk;
 use crate::util::LimitOrder;
+use crate::util::Platform;
 use anyhow::Result;
 use reqwest::Client;
 use serde::Deserialize;
@@ -25,6 +26,7 @@ pub async fn retrieve_binance_order_book(pair: String, ba: BidAsk) -> Result<Vec
                 .into_iter()
                 .map(|a| {
                     Ok(LimitOrder {
+                        platform: Platform::Binance,
                         price: a[0].parse::<f64>()?,
                         size: a[1].parse::<f64>()?,
                     })
@@ -38,6 +40,7 @@ pub async fn retrieve_binance_order_book(pair: String, ba: BidAsk) -> Result<Vec
                 .into_iter()
                 .map(|b| {
                     Ok(LimitOrder {
+                        platform: Platform::Binance,
                         price: b[0].parse::<f64>()?,
                         size: b[1].parse::<f64>()?,
                     })

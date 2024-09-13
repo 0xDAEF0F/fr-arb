@@ -1,4 +1,4 @@
-use crate::util::{BidAsk, LimitOrder};
+use crate::util::{BidAsk, LimitOrder, Platform};
 use anyhow::Result;
 use reqwest::Client;
 use serde::Deserialize;
@@ -40,6 +40,7 @@ pub async fn retrieve_hl_order_book(pair: String, ba: BidAsk) -> Result<Vec<Limi
     ba.into_iter()
         .map(|ba| -> Result<LimitOrder> {
             Ok(LimitOrder {
+                platform: Platform::Hyperliquid,
                 price: ba.px.parse()?,
                 size: ba.sz.parse()?,
             })

@@ -3,7 +3,7 @@ mod binance;
 mod command_handler;
 mod compare_funding_rates;
 mod constants;
-mod funding_history;
+mod funding_history_table;
 mod hyperliquid;
 mod quote;
 mod util;
