@@ -1,6 +1,7 @@
 use anyhow::Result;
 use hyperliquid_rust_sdk::InfoClient;
 use serde::{Deserialize, Serialize};
+use serde_aux::field_attributes::deserialize_number_from_string;
 use serde_json::json;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -22,7 +23,10 @@ struct Token {
 #[serde(rename_all = "camelCase")]
 struct FundingData {
     funding: String,
-    open_interest: String,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    open_interest: f64,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    mark_px: f64,
 }
 
 #[derive(Debug)]
@@ -30,7 +34,7 @@ pub struct HyperliquidToken {
     pub name: String,
     pub max_leverage: u8,
     pub hourly_funding_rate: f64,
-    pub open_interest: String,
+    pub open_interest: f64, // expressed in USD
 }
 
 pub async fn retrieve_hl_hourly_funding_rates(
@@ -58,7 +62,7 @@ pub async fn retrieve_hl_hourly_funding_rates(
             name: token.name,
             max_leverage: token.max_leverage,
             hourly_funding_rate: funding_rate,
-            open_interest: funding_data.open_interest,
+            open_interest: funding_data.open_interest * funding_data.mark_px,
         };
 
         hyperliquid_tokens.push(hyperliquid_token);
@@ -90,7 +94,7 @@ mod tests {
 
         let token: Vec<_> = tokens
             .into_iter()
-            .filter(|t| t.name == "BTC".to_string())
+            .filter(|t| t.name == "AAVE".to_string())
             .collect();
 
         let token = &token[0];

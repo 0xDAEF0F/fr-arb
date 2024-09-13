@@ -9,10 +9,10 @@ use tokio::try_join;
 #[derive(Debug)]
 pub struct JointFundingRate {
     pub name: String,
-    pub binance_funding_rate: f64,
+    pub binance_funding_rate: f64, // hourly fr decimal form
     pub binance_mark_price: f64,
-    pub hyperliquid_funding_rate: f64,
-    pub hyperliquid_open_interest: String,
+    pub hyperliquid_funding_rate: f64,  // hourly fr decimal form
+    pub hyperliquid_open_interest: f64, // expressed in USD
     pub funding_rate_difference: f64,
 }
 
@@ -31,7 +31,7 @@ pub async fn compare_funding_rates() -> Result<Vec<JointFundingRate>> {
         if let Some(hl_token) = hyperliquid_tokens.iter().find(|t| t.name == b_token.name) {
             let token_comparison = JointFundingRate {
                 name: b_token.name.clone(),
-                hyperliquid_open_interest: hl_token.open_interest.clone(),
+                hyperliquid_open_interest: hl_token.open_interest,
                 binance_funding_rate: b_token.hourly_funding_rate,
                 binance_mark_price: b_token.mark_price,
                 hyperliquid_funding_rate: hl_token.hourly_funding_rate,

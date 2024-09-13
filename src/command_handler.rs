@@ -1,6 +1,6 @@
 use crate::balances::{build_account_balance_table, build_account_open_positions_table};
 use crate::binance::retrieve_binance_fh_avg;
-use crate::compare_funding_rates::build_funding_rate_table;
+use crate::compare_funding_rates::{build_funding_rate_table, compare_funding_rates};
 use crate::constants::MAX_DAYS_QUERY_FUNDING_HISTORY;
 use crate::funding_history::build_avg_fh_table;
 use crate::hyperliquid::retrieve_hl_fh_avg;
@@ -67,6 +67,13 @@ about it's funding rate? (average rate)"#,
 
             let token = parts[1].to_uppercase();
             let amount: f64 = parts[2].parse()?;
+
+            let jfr = compare_funding_rates()
+                .await?
+                .into_iter()
+                .find(|jfr| jfr.name == token)
+                .expect("token must be in joint funding rates");
+
         }
         _ => {}
     }

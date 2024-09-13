@@ -20,8 +20,8 @@ pub fn retrieve_quote_for_purchase(orderbook: Vec<LimitOrder>, amount: f64) -> R
 
     let first_price = orderbook[0].price;
     for bid_ask in orderbook {
-        let price: f64 = bid_ask.price;
-        let size: f64 = bid_ask.size;
+        let price = bid_ask.price;
+        let size = bid_ask.size;
         let total = price * size;
 
         // check if total is greater that remaining amount

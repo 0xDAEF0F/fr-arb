@@ -52,7 +52,7 @@ pub async fn build_funding_rate_table() -> Result<String> {
             Cell::new(b_fr.as_str()),
             Cell::new(f.fmt2(all_oi_usd[i])),
             Cell::new(hl_fr.as_str()),
-            Cell::new(f.fmt2(jfr.hyperliquid_open_interest.parse::<f64>()?)),
+            Cell::new(f.fmt2(jfr.hyperliquid_open_interest)),
             Cell::new(fr_diff.as_str()),
         ]));
     }
