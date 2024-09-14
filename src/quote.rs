@@ -11,6 +11,7 @@ pub struct Quote {
     pub execution_price: f64,
     pub platform_fees: f64, // decimal pct
     pub slippage: f64,      // decimal pct
+    pub size: f64,
 }
 
 pub fn retrieve_quote(orderbook: Vec<LimitOrder>, amount: f64) -> Result<Quote> {
@@ -57,6 +58,7 @@ pub fn retrieve_quote(orderbook: Vec<LimitOrder>, amount: f64) -> Result<Quote> 
         execution_price,
         platform,
         slippage: calculate_pct_difference(execution_price, first_price),
+        size: total_quantity,
         platform_fees: match platform {
             Platform::Binance => BINANCE_FEE,
             Platform::Hyperliquid => HYPERLIQUID_FEE,
@@ -91,11 +93,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_quote_hl() {
-        let orderbook = retrieve_hl_order_book("BTC".to_string(), BidAsk::Ask)
+        let orderbook = retrieve_hl_order_book("LOOM".to_string(), BidAsk::Ask)
             .await
             .unwrap();
 
-        let quote = retrieve_quote(orderbook, 1_000_000.0).unwrap();
+        let quote = retrieve_quote(orderbook, 20_000.0).unwrap();
 
         println!("quote: {quote:#?}");
     }

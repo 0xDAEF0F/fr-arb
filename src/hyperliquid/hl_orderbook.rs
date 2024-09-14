@@ -14,13 +14,13 @@ struct HlBidAsk {
     sz: String,
 }
 
-pub async fn retrieve_hl_order_book(pair: String, ba: BidAsk) -> Result<Vec<LimitOrder>> {
+pub async fn retrieve_hl_order_book(token: String, ba: BidAsk) -> Result<Vec<LimitOrder>> {
     let client = Client::new();
 
     let url = "https://api.hyperliquid.xyz/info";
     let body = serde_json::json!({
         "type": "l2Book",
-        "coin": format!("{pair}")
+        "coin": format!("{token}")
     });
 
     let response = client

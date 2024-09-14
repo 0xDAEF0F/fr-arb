@@ -1310,6 +1310,7 @@ dependencies = [
  "chrono",
  "dotenv",
  "env_logger 0.11.5",
+ "ethers",
  "futures",
  "hex",
  "hmac",
@@ -1803,8 +1804,7 @@ dependencies = [
 [[package]]
 name = "hyperliquid_rust_sdk"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab33efbbf06ecf350f2c1bc596e97d5237f64d7623272d725c8248c4b9ab2cdc"
+source = "git+https://github.com/hyperliquid-dex/hyperliquid-rust-sdk?rev=44c0beb#44c0beb582396d71f3cfe63e539a2d96b3c9313e"
 dependencies = [
  "chrono",
  "env_logger 0.10.2",

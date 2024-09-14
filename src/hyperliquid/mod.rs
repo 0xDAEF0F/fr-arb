@@ -1,4 +1,5 @@
 pub mod account_information;
+mod execute_mkt_order;
 mod funding_history;
 pub mod funding_rates;
 mod hl_orderbook;
