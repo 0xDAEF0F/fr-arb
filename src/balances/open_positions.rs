@@ -113,7 +113,7 @@ pub async fn build_account_open_positions_table() -> Result<String> {
         Cell::new("platform"),
         Cell::new("coin"),
         Cell::new("direction"),
-        Cell::new("size (amt tokens)"),
+        Cell::new("size (tokens)"),
         Cell::new("entry price"),
         Cell::new("pnl"),
         Cell::new("funding rate (apr)"),
@@ -125,14 +125,15 @@ pub async fn build_account_open_positions_table() -> Result<String> {
 
     for position in open_positions {
         let fmt_annualized_fr = f.fmt2(position.funding_rate * 100.0);
-        let fmt_entry_price = format!("${}", (position.entry_price * 100.0).round() / 100.0);
+        let fmt_entry_price = format!("${:.2}", position.entry_price);
+        let pnl = format!("${:.2}", position.pnl);
         table.add_row(Row::new(vec![
             Cell::new(position.platform.as_str()),
             Cell::new(position.coin.as_str()),
             Cell::new(position.direction.as_str()),
             Cell::new(position.size.to_string().as_str()),
             Cell::new(fmt_entry_price.as_str()),
-            Cell::new(position.pnl.to_string().as_str()),
+            Cell::new(pnl.as_str()),
             Cell::new(fmt_annualized_fr),
         ]));
     }
