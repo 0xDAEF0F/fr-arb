@@ -21,7 +21,7 @@ pub async fn compare_funding_rates() -> Result<Vec<JointFundingRate>> {
     let info_client = InfoClient::new(None, None).await?;
 
     let (binance_tokens, hyperliquid_tokens) = try_join!(
-        retrieve_binance_hourly_funding_rates(&http_client),
+        retrieve_binance_hourly_funding_rates(),
         retrieve_hl_hourly_funding_rates(&info_client)
     )?;
 

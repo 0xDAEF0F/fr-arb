@@ -1,5 +1,4 @@
 use anyhow::{bail, Result};
-use numfmt::Formatter;
 use reqwest::Client;
 use serde::Deserialize;
 
@@ -13,12 +12,12 @@ struct FundingHistory {
     funding_time: u64,    // ms timestamp
 }
 
-async fn retrieve_binance_funding_history(coin: String) -> Result<Vec<FundingHistory>> {
+async fn retrieve_binance_funding_history(token: String) -> Result<Vec<FundingHistory>> {
     let client = Client::new();
 
     let res = client
         .get(format!(
-            "https://fapi.binance.com/fapi/v1/fundingRate?symbol={coin}USDT"
+            "https://fapi.binance.com/fapi/v1/fundingRate?symbol={token}USDT"
         ))
         .send()
         .await?;
@@ -31,14 +30,14 @@ async fn retrieve_binance_funding_history(coin: String) -> Result<Vec<FundingHis
 /// `coin` without 'quote'. e.g., BTC
 /// `days` > 0 <= `MAX_DAYS_QUERY_FUNDING_HISTORY`
 /// returns annualized funding history average
-pub async fn retrieve_binance_fh_avg(coin: String, past_days: u16) -> Result<f64> {
+pub async fn retrieve_binance_fh_avg(token: String, past_days: u16) -> Result<f64> {
     if past_days > MAX_DAYS_QUERY_FUNDING_HISTORY {
         bail!("can only peek up {} days", MAX_DAYS_QUERY_FUNDING_HISTORY)
     } else if past_days == 0 {
         bail!("min 1 days")
     }
 
-    let mut fh = retrieve_binance_funding_history(coin).await?;
+    let mut fh = retrieve_binance_funding_history(token).await?;
     fh.sort_by(|a, b| b.funding_time.cmp(&a.funding_time));
 
     // diff between two consecutive funding times `&fh[0] > &fh[1]`

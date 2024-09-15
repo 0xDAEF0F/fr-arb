@@ -1,31 +1,30 @@
 use crate::constants::BINANCE_FEE;
 use crate::constants::HYPERLIQUID_FEE;
-use crate::util::LimitOrder;
-use crate::util::Platform;
+use crate::util::{Orderbook, Platform};
 use anyhow::bail;
 use anyhow::Result;
 
 #[derive(Debug)]
 pub struct Quote {
     pub platform: Platform,
-    pub execution_price: f64,
+    pub expected_execution_price: f64,
     pub platform_fees: f64, // decimal pct
     pub slippage: f64,      // decimal pct
     pub size: f64,
 }
 
-pub fn retrieve_quote(orderbook: Vec<LimitOrder>, amount: f64) -> Result<Quote> {
+pub fn retrieve_quote(orderbook: Orderbook, amount: f64) -> Result<Quote> {
     let mut remaining_amount = amount;
     let mut total_cost = 0.0;
     let mut total_quantity = 0.0;
 
-    if orderbook.is_empty() {
+    if orderbook.limit_orders.is_empty() {
         bail!("empty orderbook")
     }
 
-    let first_price = orderbook[0].price;
-    let platform = orderbook[0].platform;
-    for bid_ask in orderbook {
+    let first_price = orderbook.limit_orders[0].price;
+    let platform = orderbook.platform;
+    for bid_ask in orderbook.limit_orders {
         let price = bid_ask.price;
         let size = bid_ask.size;
         let total = price * size;
@@ -55,7 +54,7 @@ pub fn retrieve_quote(orderbook: Vec<LimitOrder>, amount: f64) -> Result<Quote> 
     let execution_price = total_cost / total_quantity;
 
     let quote = Quote {
-        execution_price,
+        expected_execution_price: execution_price,
         platform,
         slippage: calculate_pct_difference(execution_price, first_price),
         size: total_quantity,
@@ -76,13 +75,13 @@ fn calculate_pct_difference(execution_price: f64, first_price: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::util::{BidAsk, Platform};
+    use crate::util::{BidAsk, LimitOrder, Platform};
     use crate::{binance::retrieve_binance_order_book, hyperliquid::retrieve_hl_order_book};
     use approx::assert_relative_eq;
 
     #[tokio::test]
     async fn test_quote_binance() {
-        let orderbook = retrieve_binance_order_book("ETHUSDT".to_string(), BidAsk::Ask)
+        let orderbook = retrieve_binance_order_book("ETH".to_string(), BidAsk::Ask)
             .await
             .unwrap();
 
@@ -107,14 +106,20 @@ mod tests {
         let asks = get_mock_bids();
 
         // empty orderbook
-        let quote = retrieve_quote(vec![], 246.0);
+        let quote = retrieve_quote(
+            Orderbook {
+                platform: Platform::Binance,
+                limit_orders: vec![],
+            },
+            246.0,
+        );
         assert!(quote.is_err());
 
         let quote = retrieve_quote(asks.clone(), 246.0);
         assert!(quote.is_err());
 
         let quote = retrieve_quote(asks, 245.0)?;
-        assert_relative_eq!(quote.execution_price, 9.07, max_relative = 0.1);
+        assert_relative_eq!(quote.expected_execution_price, 9.07, max_relative = 0.1);
 
         Ok(())
     }
@@ -124,7 +129,13 @@ mod tests {
         let asks = get_mock_asks();
 
         // empty orderbook
-        let quote = retrieve_quote(vec![], 246.0);
+        let quote = retrieve_quote(
+            Orderbook {
+                platform: Platform::Binance,
+                limit_orders: vec![],
+            },
+            246.0,
+        );
         assert!(quote.is_err());
 
         // i want to sell more than all the asks combined
@@ -133,7 +144,7 @@ mod tests {
 
         // first ask and half of the second one
         let quote = retrieve_quote(asks, 104.5)?;
-        assert_relative_eq!(quote.execution_price, 8.36, max_relative = 0.1);
+        assert_relative_eq!(quote.expected_execution_price, 8.36, max_relative = 0.1);
 
         Ok(())
     }
@@ -145,6 +156,7 @@ mod tests {
             .unwrap();
 
         let total_value_of_order_book: f64 = result
+            .limit_orders
             .iter()
             .fold(0.0, |acc, curr| acc + (curr.price * curr.size));
 
@@ -161,49 +173,43 @@ mod tests {
         println!("selling pct diff: {selling}");
     }
 
-    fn get_mock_bids() -> Vec<LimitOrder> {
-        vec![
-            // 100.0
-            LimitOrder {
-                platform: Platform::Binance,
-                price: 10.0,
-                size: 10.0,
-            },
-            // 81.0
-            LimitOrder {
-                platform: Platform::Binance,
-                price: 9.0,
-                size: 9.0,
-            },
-            // 64.0
-            LimitOrder {
-                platform: Platform::Binance,
-                price: 8.0,
-                size: 8.0,
-            },
-        ]
+    fn get_mock_bids() -> Orderbook {
+        Orderbook {
+            platform: Platform::Binance,
+            limit_orders: vec![
+                LimitOrder {
+                    price: 10.0,
+                    size: 10.0,
+                },
+                LimitOrder {
+                    price: 9.0,
+                    size: 9.0,
+                },
+                LimitOrder {
+                    price: 8.0,
+                    size: 8.0,
+                },
+            ],
+        }
     }
 
-    fn get_mock_asks() -> Vec<LimitOrder> {
-        vec![
-            // 64.0
-            LimitOrder {
-                platform: Platform::Binance,
-                price: 8.0,
-                size: 8.0,
-            },
-            // 81.0
-            LimitOrder {
-                platform: Platform::Binance,
-                price: 9.0,
-                size: 9.0,
-            },
-            // 100.0
-            LimitOrder {
-                platform: Platform::Binance,
-                price: 10.0,
-                size: 10.0,
-            },
-        ]
+    fn get_mock_asks() -> Orderbook {
+        Orderbook {
+            platform: Platform::Binance,
+            limit_orders: vec![
+                LimitOrder {
+                    price: 8.0,
+                    size: 8.0,
+                },
+                LimitOrder {
+                    price: 9.0,
+                    size: 9.0,
+                },
+                LimitOrder {
+                    price: 10.0,
+                    size: 10.0,
+                },
+            ],
+        }
     }
 }

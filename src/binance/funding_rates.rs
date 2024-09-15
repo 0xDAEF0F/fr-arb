@@ -4,7 +4,7 @@ use crate::binance::{
     raw_funding_rate::retrieve_binance_raw_funding_rates,
 };
 use anyhow::Result;
-use reqwest::Client;
+use tokio::try_join;
 
 #[derive(Debug)]
 pub struct BinanceFundingRate {
@@ -14,12 +14,12 @@ pub struct BinanceFundingRate {
     pub mark_price: f64,
 }
 
-pub async fn retrieve_binance_hourly_funding_rates(
-    http_client: &Client,
-) -> Result<Vec<BinanceFundingRate>> {
-    let raw_funding_rates = retrieve_binance_raw_funding_rates(&http_client).await?;
-    let funding_info = retrieve_binance_funding_info(&http_client).await?;
-    let token_leverage = retrieve_binance_general_info(&http_client).await?;
+pub async fn retrieve_binance_hourly_funding_rates() -> Result<Vec<BinanceFundingRate>> {
+    let (raw_funding_rates, funding_info, token_leverage) = try_join!(
+        retrieve_binance_raw_funding_rates(),
+        retrieve_binance_funding_info(),
+        retrieve_binance_general_info(),
+    )?;
 
     let mut hourly_funding_rates = Vec::new();
 
@@ -67,10 +67,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_binance_hourly_funding_rates() {
-        let client = Client::new();
-        let hourly_funding_rates = retrieve_binance_hourly_funding_rates(&client)
-            .await
-            .unwrap();
+        let hourly_funding_rates = retrieve_binance_hourly_funding_rates().await.unwrap();
         // println!(
         //     "{:#?}",
         //     hourly_funding_rates.iter().find(|h| h.name == "ZRO")

@@ -27,8 +27,10 @@ pub struct MarketLotSize {
     pub step_size: f64,
 }
 
-pub async fn retrieve_binance_general_info(http_client: &Client) -> Result<Vec<TokenLeverage>> {
-    let req = http_client
+pub async fn retrieve_binance_general_info() -> Result<Vec<TokenLeverage>> {
+    let client = Client::new();
+
+    let req = client
         .get("https://fapi.binance.com/fapi/v1/exchangeInfo")
         .send()
         .await?;
@@ -61,8 +63,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_retrieve_binance_leverage() {
-        let http_client = Client::new();
-        let tokens = retrieve_binance_general_info(&http_client).await.unwrap();
+        let tokens = retrieve_binance_general_info().await.unwrap();
+
         println!("{:#?}", tokens.into_iter().take(5).collect::<Vec<_>>())
     }
 }

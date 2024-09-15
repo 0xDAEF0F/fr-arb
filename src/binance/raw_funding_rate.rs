@@ -13,10 +13,10 @@ pub struct BinanceIndexFundingRate {
     pub mark_price: f64,
 }
 
-pub async fn retrieve_binance_raw_funding_rates(
-    http_client: &Client,
-) -> Result<Vec<BinanceIndexFundingRate>> {
-    let req = http_client
+pub async fn retrieve_binance_raw_funding_rates() -> Result<Vec<BinanceIndexFundingRate>> {
+    let client = Client::new();
+
+    let req = client
         .get("https://fapi.binance.com/fapi/v1/premiumIndex")
         .send()
         .await?;
@@ -32,10 +32,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_funding_rates() {
-        let http_client = Client::new();
-        let funding_rates = retrieve_binance_raw_funding_rates(&http_client)
-            .await
-            .unwrap();
+        let funding_rates = retrieve_binance_raw_funding_rates().await.unwrap();
 
         println!("funding_rates len: {}", funding_rates.len());
         println!("funding_rates {:#?}", funding_rates);

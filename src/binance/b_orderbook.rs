@@ -1,5 +1,6 @@
 use crate::util::BidAsk;
 use crate::util::LimitOrder;
+use crate::util::Orderbook;
 use crate::util::Platform;
 use anyhow::Result;
 use reqwest::Client;
@@ -11,10 +12,10 @@ struct BinanceOrderBook {
     asks: Vec<Vec<String>>,
 }
 
-pub async fn retrieve_binance_order_book(pair: String, ba: BidAsk) -> Result<Vec<LimitOrder>> {
+pub async fn retrieve_binance_order_book(token: String, ba: BidAsk) -> Result<Orderbook> {
     let client = Client::new();
 
-    let url = format!("https://fapi.binance.com/fapi/v1/depth?symbol={pair}");
+    let url = format!("https://fapi.binance.com/fapi/v1/depth?symbol={token}USDT");
 
     let response = client.get(&url).send().await?;
     let orderbook: BinanceOrderBook = response.json().await?;
@@ -26,13 +27,15 @@ pub async fn retrieve_binance_order_book(pair: String, ba: BidAsk) -> Result<Vec
                 .into_iter()
                 .map(|a| {
                     Ok(LimitOrder {
-                        platform: Platform::Binance,
                         price: a[0].parse::<f64>()?,
                         size: a[1].parse::<f64>()?,
                     })
                 })
                 .collect::<Result<Vec<LimitOrder>>>()?;
-            Ok(asks)
+            Ok(Orderbook {
+                platform: Platform::Binance,
+                limit_orders: asks,
+            })
         }
         BidAsk::Bid => {
             let bids = orderbook
@@ -40,13 +43,15 @@ pub async fn retrieve_binance_order_book(pair: String, ba: BidAsk) -> Result<Vec
                 .into_iter()
                 .map(|b| {
                     Ok(LimitOrder {
-                        platform: Platform::Binance,
                         price: b[0].parse::<f64>()?,
                         size: b[1].parse::<f64>()?,
                     })
                 })
                 .collect::<Result<Vec<LimitOrder>>>()?;
-            Ok(bids)
+            Ok(Orderbook {
+                platform: Platform::Binance,
+                limit_orders: bids,
+            })
         }
     }
 }
@@ -57,7 +62,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_retrieve_binance_asks() {
-        let pair = "ETHUSDT".to_string();
+        let pair = "ETH".to_string();
         let result = retrieve_binance_order_book(pair, BidAsk::Ask).await;
 
         println!("{:#?}", result.unwrap());
@@ -65,11 +70,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_calculate_depth_orderbook() {
-        let result = retrieve_binance_order_book("ETHUSDT".to_string(), BidAsk::Ask)
+        let result = retrieve_binance_order_book("ETH".to_string(), BidAsk::Ask)
             .await
             .unwrap();
 
         let total_value_of_order_book: f64 = result
+            .limit_orders
             .iter()
             .fold(0.0, |acc, curr| acc + (curr.price * curr.size));
 

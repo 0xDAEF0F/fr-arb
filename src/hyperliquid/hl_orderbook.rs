@@ -1,4 +1,4 @@
-use crate::util::{BidAsk, LimitOrder, Platform};
+use crate::util::{BidAsk, LimitOrder, Orderbook, Platform};
 use anyhow::Result;
 use reqwest::Client;
 use serde::Deserialize;
@@ -14,7 +14,7 @@ struct HlBidAsk {
     sz: String,
 }
 
-pub async fn retrieve_hl_order_book(token: String, ba: BidAsk) -> Result<Vec<LimitOrder>> {
+pub async fn retrieve_hl_order_book(token: String, ba: BidAsk) -> Result<Orderbook> {
     let client = Client::new();
 
     let url = "https://api.hyperliquid.xyz/info";
@@ -37,15 +37,20 @@ pub async fn retrieve_hl_order_book(token: String, ba: BidAsk) -> Result<Vec<Lim
         BidAsk::Ask => orderbook.levels.into_iter().nth(1).unwrap(),
     };
 
-    ba.into_iter()
+    let ba = ba
+        .into_iter()
         .map(|ba| -> Result<LimitOrder> {
             Ok(LimitOrder {
-                platform: Platform::Hyperliquid,
                 price: ba.px.parse()?,
                 size: ba.sz.parse()?,
             })
         })
-        .collect::<Result<Vec<_>>>()
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(Orderbook {
+        platform: Platform::Hyperliquid,
+        limit_orders: ba,
+    })
 }
 
 #[cfg(test)]

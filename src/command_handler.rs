@@ -79,25 +79,23 @@ about it's funding rate? (average rate)"#,
 
             let (short_orderbook, long_orderbook) = match platform {
                 Platform::Binance => (
-                    retrieve_binance_order_book(format!("{token}USDT"), BidAsk::Bid).await?,
+                    retrieve_binance_order_book(token.clone(), BidAsk::Bid).await?,
                     retrieve_hl_order_book(token.clone(), BidAsk::Ask).await?,
                 ),
                 Platform::Hyperliquid => (
                     retrieve_hl_order_book(token.clone(), BidAsk::Bid).await?,
-                    retrieve_binance_order_book(format!("{token}USDT"), BidAsk::Ask).await?,
+                    retrieve_binance_order_book(token.clone(), BidAsk::Ask).await?,
                 ),
             };
 
             let quote_a = retrieve_quote(short_orderbook, amount / 2.0)?;
-            // writeln!(stdout, "quote_a: {:#?}", quote_a)?;
             let quote_b = retrieve_quote(long_orderbook, amount / 2.0)?;
-            // writeln!(stdout, "quote_b: {:#?}", quote_b)?;
 
             let slippage_bips = (quote_a.slippage + quote_b.slippage) * 10_000.0;
             let platform_fees_bips = (quote_a.platform_fees + quote_b.platform_fees) * 10_000.0;
 
-            let short_execution_price = quote_a.execution_price;
-            let long_execution_price = quote_b.execution_price;
+            let short_execution_price = quote_a.expected_execution_price;
+            let long_execution_price = quote_b.expected_execution_price;
 
             writeln!(stdout, "slippage: {}", slippage_bips)?;
             writeln!(stdout, "platform fees: {}", platform_fees_bips)?;

@@ -12,7 +12,6 @@ use anyhow::Result;
 use hyperliquid_rust_sdk::InfoClient;
 use numfmt::Formatter;
 use prettytable::{Cell, Row, Table};
-use reqwest::Client;
 use tokio::try_join;
 
 #[derive(Debug)]
@@ -27,13 +26,12 @@ pub struct Position {
 }
 
 async fn retrieve_account_open_positions() -> Result<Vec<Position>> {
-    let client = Client::new();
     let info_client = InfoClient::new(None, None).await.unwrap();
 
     let (binance_acct_info, hyperliquid_acct_info, binance_funding_rates, hl_funding_rates) = try_join!(
         retrieve_binance_account_info(),
         retrieve_hl_account_info(),
-        retrieve_binance_hourly_funding_rates(&client),
+        retrieve_binance_hourly_funding_rates(),
         retrieve_hl_hourly_funding_rates(&info_client)
     )?;
 

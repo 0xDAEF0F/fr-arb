@@ -4,17 +4,14 @@ use anyhow::Result;
 use futures::future::try_join_all;
 use numfmt::Formatter;
 use prettytable::{Cell, Row, Table};
-use reqwest::Client;
 
 pub async fn build_funding_rate_table() -> Result<String> {
     let fr = compare_funding_rates().await?;
     let top_fr = fr.into_iter().take(8).collect::<Vec<_>>();
 
-    let http_client = Client::new();
-
     let all_oi = top_fr
         .iter()
-        .map(|jfr| retrieve_token_open_interest(&http_client, format!("{}USDT", jfr.name.clone())))
+        .map(|jfr| retrieve_token_open_interest(jfr.name.clone()))
         .collect::<Vec<_>>();
     let all_oi = try_join_all(all_oi).await?;
     let all_oi_usd: Vec<_> = all_oi

@@ -9,12 +9,11 @@ pub struct OpenInterest {
     pub open_interest: String,
 }
 
-pub async fn retrieve_token_open_interest(
-    http_client: &Client,
-    pair: String,
-) -> Result<OpenInterest> {
-    let url = format!("https://fapi.binance.com/fapi/v1/openInterest?symbol={pair}");
-    let req = http_client.get(url).send().await?;
+pub async fn retrieve_token_open_interest(token: String) -> Result<OpenInterest> {
+    let client = Client::new();
+
+    let url = format!("https://fapi.binance.com/fapi/v1/openInterest?symbol={token}USDT");
+    let req = client.get(url).send().await?;
 
     let pair_oi: OpenInterest = req.json().await?;
 
@@ -27,9 +26,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_retrieve_binance_leverage() {
-        let http_client = Client::new();
-
-        let pair_oi = retrieve_token_open_interest(&http_client, "BTCUSDT".to_string())
+        let pair_oi = retrieve_token_open_interest("BTC".to_string())
             .await
             .unwrap();
 

@@ -9,10 +9,10 @@ pub struct BinanceFundingInfo {
     pub funding_interval_hours: f64,
 }
 
-pub async fn retrieve_binance_funding_info(
-    http_client: &Client,
-) -> Result<Vec<BinanceFundingInfo>> {
-    let req = http_client
+pub async fn retrieve_binance_funding_info() -> Result<Vec<BinanceFundingInfo>> {
+    let client = Client::new();
+
+    let req = client
         .get("https://fapi.binance.com/fapi/v1/fundingInfo")
         .send()
         .await
@@ -29,8 +29,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_funding_info() {
-        let http_client = Client::new();
-        let funding_rates = retrieve_binance_funding_info(&http_client).await.unwrap();
+        let funding_rates = retrieve_binance_funding_info().await.unwrap();
 
         println!("funding_info len: {}", funding_rates.len());
         println!("funding_info {:#?}", funding_rates);
