@@ -1,4 +1,4 @@
-use super::leverage::retrieve_binance_leverage;
+use super::general_info::retrieve_binance_general_info;
 use crate::binance::{
     funding_intervals::retrieve_binance_funding_info,
     raw_funding_rate::retrieve_binance_raw_funding_rates,
@@ -19,7 +19,7 @@ pub async fn retrieve_binance_hourly_funding_rates(
 ) -> Result<Vec<BinanceFundingRate>> {
     let raw_funding_rates = retrieve_binance_raw_funding_rates(&http_client).await?;
     let funding_info = retrieve_binance_funding_info(&http_client).await?;
-    let token_leverage = retrieve_binance_leverage(&http_client).await?;
+    let token_leverage = retrieve_binance_general_info(&http_client).await?;
 
     let mut hourly_funding_rates = Vec::new();
 

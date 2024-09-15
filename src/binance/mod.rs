@@ -1,9 +1,10 @@
 pub mod account_information;
 mod b_orderbook;
+mod execute_mkt_order;
 mod funding_history;
 mod funding_intervals;
 pub mod funding_rates;
-mod leverage;
+mod general_info;
 mod open_interest;
 mod raw_funding_rate;
 
