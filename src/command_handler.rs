@@ -1,8 +1,12 @@
 use crate::balances::{build_account_balance_table, build_account_open_positions_table};
-use crate::binance::{retrieve_binance_fh_avg, retrieve_binance_order_book};
+use crate::binance;
+use crate::binance::{
+    retrieve_binance_fh_avg, retrieve_binance_general_info, retrieve_binance_order_book,
+};
 use crate::compare_funding_rates::{build_funding_rate_table, compare_funding_rates};
 use crate::constants::MAX_DAYS_QUERY_FUNDING_HISTORY;
 use crate::funding_history_table::build_avg_fh_table;
+use crate::hyperliquid;
 use crate::hyperliquid::{retrieve_hl_fh_avg, retrieve_hl_order_book};
 use crate::quote::retrieve_quote;
 use crate::util::{calculate_effective_rate, determine_short_based_on_fr, BidAsk, Platform};
@@ -110,6 +114,63 @@ about it's funding rate? (average rate)"#,
                 "short price {:?}: {} — long price {:?}: {}",
                 quote_a.platform, short_execution_price, quote_b.platform, long_execution_price
             )?;
+        }
+        // Enter into a position
+        execute if execute.starts_with("execute") => {
+            let parts: Vec<&str> = execute.split_whitespace().collect();
+
+            let token = parts[1].to_uppercase();
+            let amount: f64 = parts[2].parse()?;
+
+            let jfr = compare_funding_rates()
+                .await?
+                .into_iter()
+                .find(|jfr| jfr.name == token)
+                .expect("token must be in joint funding rates");
+
+            let platform = determine_short_based_on_fr(jfr);
+
+            let (short_orderbook, long_orderbook) = match platform {
+                Platform::Binance => (
+                    retrieve_binance_order_book(token.clone(), BidAsk::Bid).await?,
+                    retrieve_hl_order_book(token.clone(), BidAsk::Ask).await?,
+                ),
+                Platform::Hyperliquid => (
+                    retrieve_hl_order_book(token.clone(), BidAsk::Bid).await?,
+                    retrieve_binance_order_book(token.clone(), BidAsk::Ask).await?,
+                ),
+            };
+
+            // take any of the two amounts
+            let quote_a = retrieve_quote(short_orderbook, amount / 2.0)?;
+            let quote_b = retrieve_quote(long_orderbook, amount / 2.0)?;
+
+            // binance uses a min amount (step size). we are going to use that amount
+            // for hyperliquid, too.
+            let step_size = retrieve_binance_general_info()
+                .await?
+                .iter()
+                .find(|t| t.symbol == format!("{token}USDT"))
+                .expect("could not find token")
+                .filters
+                .step_size;
+
+            // the size we are about to long/short
+            let trimmed_qty = (quote_a.size / step_size).round() * step_size;
+
+            let (b, h) = match platform {
+                Platform::Binance => try_join!(
+                    binance::execute_mkt_order(token.clone(), trimmed_qty, false),
+                    hyperliquid::execute_mkt_order(token.clone(), trimmed_qty, true)
+                )?,
+                Platform::Hyperliquid => try_join!(
+                    binance::execute_mkt_order(token.clone(), trimmed_qty, true),
+                    hyperliquid::execute_mkt_order(token.clone(), trimmed_qty, false)
+                )?,
+            };
+
+            writeln!(stdout, "order filled one: {:?}", b)?;
+            writeln!(stdout, "order filled two: {:?}", h)?;
         }
         _ => {}
     }

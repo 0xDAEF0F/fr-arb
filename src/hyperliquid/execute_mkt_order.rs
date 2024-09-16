@@ -1,24 +1,20 @@
-use super::retrieve_hl_order_book;
-use crate::{constants::EXECUTION_SLIPPAGE, quote::retrieve_quote, util::BidAsk};
+use crate::{
+    constants::EXECUTION_SLIPPAGE,
+    util::{OrderFilled, Platform, Side},
+};
 use anyhow::{bail, Result};
 use ethers::signers::{coins_bip39::English, LocalWallet, MnemonicBuilder};
 use hyperliquid_rust_sdk::{
-    BaseUrl, ExchangeClient, ExchangeDataStatus, ExchangeResponseStatus, FilledOrder,
-    MarketOrderParams,
+    BaseUrl, ExchangeClient, ExchangeDataStatus, ExchangeResponseStatus, MarketOrderParams,
 };
 
-async fn execute_mkt_order(token: String, amt: f64, is_buy: bool) -> Result<FilledOrder> {
+pub async fn execute_mkt_order(token: String, size: f64, is_buy: bool) -> Result<OrderFilled> {
     let hl_client = setup_hl_client().await?;
-
-    let ba = if is_buy { BidAsk::Ask } else { BidAsk::Bid };
-    let hl_orderbook = retrieve_hl_order_book(token.clone(), ba).await?;
-
-    let quote = retrieve_quote(hl_orderbook, amt)?;
 
     let market_open_params = MarketOrderParams {
         asset: token.as_str(),
-        is_buy: false,
-        sz: quote.size,
+        is_buy,
+        sz: size,
         px: None,
         slippage: Some(EXECUTION_SLIPPAGE),
         cloid: None,
@@ -31,7 +27,13 @@ async fn execute_mkt_order(token: String, amt: f64, is_buy: bool) -> Result<Fill
         if let ExchangeDataStatus::Filled(order) =
             exchange_response.data.unwrap().statuses[0].clone()
         {
-            return Ok(order);
+            return Ok(OrderFilled {
+                token,
+                platform: Platform::Hyperliquid,
+                size: order.total_sz.parse().unwrap(),
+                avg_price: order.avg_px.parse().unwrap(),
+                side: if is_buy { Side::BUY } else { Side::SELL },
+            });
         }
     }
 

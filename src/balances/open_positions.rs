@@ -104,6 +104,10 @@ async fn retrieve_account_open_positions() -> Result<Vec<Position>> {
 pub async fn build_account_open_positions_table() -> Result<String> {
     let open_positions = retrieve_account_open_positions().await?;
 
+    if open_positions.is_empty() {
+        return Ok("No open positions.".to_string());
+    }
+
     let mut table = Table::new();
 
     table.add_row(Row::new(vec![Cell::new("open positions")]));

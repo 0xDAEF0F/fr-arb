@@ -50,7 +50,15 @@ pub async fn retrieve_binance_account_info() -> Result<BinanceAccountRes> {
         .send()
         .await?;
 
-    let binance_account_res: BinanceAccountRes = res.json().await?;
+    let mut binance_account_res: BinanceAccountRes = res.json().await?;
+
+    for p in binance_account_res.positions.iter_mut() {
+        if p.position_amt.parse::<f64>()?.is_sign_negative() {
+            p.position_side = "SHORT".to_string();
+        } else {
+            p.position_side = "LONG".to_string();
+        }
+    }
 
     Ok(binance_account_res)
 }

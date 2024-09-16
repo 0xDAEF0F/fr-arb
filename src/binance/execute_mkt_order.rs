@@ -1,48 +1,30 @@
-use crate::{
-    binance::general_info::retrieve_binance_general_info,
-    quote::retrieve_quote,
-    util::{generate_hmac_signature, BidAsk},
-};
+use super::get_binance_avg_price;
+use crate::util::{generate_hmac_signature, OrderFilled, Platform, Side};
 use anyhow::Result;
 use reqwest::Client;
 use serde::Deserialize;
 
-use super::retrieve_binance_order_book;
-
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-struct MktOrderRes {
-    order_id: u128,
-    side: String, // BUY || SELL
+pub struct MktOrderRes {
+    pub order_id: u128,
+    pub side: String, // BUY || SELL
     #[serde(rename = "symbol")]
-    token: String,
+    pub token: String,
 }
 
-async fn execute_mkt_order(token: String, amt: f64, is_buy: bool) -> Result<MktOrderRes> {
+pub async fn execute_mkt_order(token: String, size: f64, is_buy: bool) -> Result<OrderFilled> {
     let client = Client::new();
     let timestamp = chrono::Utc::now().timestamp_millis();
 
-    let ba = if is_buy { BidAsk::Ask } else { BidAsk::Bid };
-    let orderbook = retrieve_binance_order_book(token.clone(), ba).await?;
-    let quote = retrieve_quote(orderbook, amt)?;
-
-    let step_size = retrieve_binance_general_info()
-        .await?
-        .iter()
-        .find(|t| t.symbol == format!("{token}USDT"))
-        .expect("could not find token")
-        .filters
-        .step_size;
-
-    let quantity = get_trimmed_quantity(quote.size, step_size);
-    let side = if is_buy { "BUY" } else { "SELL" };
+    let side = if is_buy { Side::BUY } else { Side::SELL };
     let signature = generate_hmac_signature(Some(
         format!(
-            "symbol={token}USDT&side={side}&type=MARKET&quantity={quantity}&timestamp={timestamp}"
+            "symbol={token}USDT&side={side:?}&type=MARKET&quantity={size}&timestamp={timestamp}"
         )
         .to_string(),
     ))?;
-    let url = format!("https://fapi.binance.com/fapi/v1/order?symbol={token}USDT&side={side}&type=MARKET&quantity={quantity}&timestamp={timestamp}&signature={signature}");
+    let url = format!("https://fapi.binance.com/fapi/v1/order?symbol={token}USDT&side={side:?}&type=MARKET&quantity={size}&timestamp={timestamp}&signature={signature}");
 
     let res = client
         .post(url)
@@ -52,9 +34,18 @@ async fn execute_mkt_order(token: String, amt: f64, is_buy: bool) -> Result<MktO
 
     let binance_account_res: MktOrderRes = res.json().await?;
 
-    Ok(binance_account_res)
+    let avg_price = get_binance_avg_price(token.clone(), binance_account_res.order_id).await?;
+
+    Ok(OrderFilled {
+        token,
+        platform: Platform::Binance,
+        size,
+        avg_price,
+        side,
+    })
 }
 
+#[allow(dead_code)]
 fn get_trimmed_quantity(qty: f64, step_size: f64) -> f64 {
     (qty / step_size).round() * step_size
 }
