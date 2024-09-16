@@ -1,5 +1,10 @@
+use crate::binance::retrieve_binance_order_book;
+use crate::compare_funding_rates::compare_funding_rates;
 use crate::constants::BINANCE_FEE;
 use crate::constants::HYPERLIQUID_FEE;
+use crate::hyperliquid::retrieve_hl_order_book;
+use crate::util::determine_short_based_on_fr;
+use crate::util::BidAsk;
 use crate::util::{Orderbook, Platform};
 use anyhow::bail;
 use anyhow::Result;
@@ -13,7 +18,34 @@ pub struct Quote {
     pub size: f64,
 }
 
-pub fn retrieve_quote(orderbook: Orderbook, amount: f64) -> Result<Quote> {
+/// first quote represents sell/short
+pub async fn retrieve_quote(token: String, amt: f64) -> Result<(Quote, Quote)> {
+    let jfr = compare_funding_rates()
+        .await?
+        .into_iter()
+        .find(|jfr| jfr.name == token)
+        .expect("token must be in joint funding rates");
+
+    let platform = determine_short_based_on_fr(jfr);
+
+    let (short_orderbook, long_orderbook) = match platform {
+        Platform::Binance => (
+            retrieve_binance_order_book(token.clone(), BidAsk::Bid).await?,
+            retrieve_hl_order_book(token.clone(), BidAsk::Ask).await?,
+        ),
+        Platform::Hyperliquid => (
+            retrieve_hl_order_book(token.clone(), BidAsk::Bid).await?,
+            retrieve_binance_order_book(token.clone(), BidAsk::Ask).await?,
+        ),
+    };
+
+    let quote_a = retrieve_quote_(short_orderbook, amt / 2.0)?;
+    let quote_b = retrieve_quote_(long_orderbook, amt / 2.0)?;
+
+    Ok((quote_a, quote_b))
+}
+
+fn retrieve_quote_(orderbook: Orderbook, amount: f64) -> Result<Quote> {
     let mut remaining_amount = amount;
     let mut total_cost = 0.0;
     let mut total_quantity = 0.0;
@@ -48,6 +80,8 @@ pub fn retrieve_quote(orderbook: Orderbook, amount: f64) -> Result<Quote> {
 
     // order book does not have enough orders for the amount
     if remaining_amount > 0.0 {
+        // TODO: remove this line. temporary
+        println!("remaining_amount: {remaining_amount}");
         bail!("orderbook can't cover the amount to buy/sell")
     }
 
@@ -85,7 +119,7 @@ mod tests {
             .await
             .unwrap();
 
-        let quote = retrieve_quote(orderbook, 9_000_000.0).unwrap();
+        let quote = retrieve_quote_(orderbook, 9_000_000.0).unwrap();
 
         println!("quote: {quote:#?}");
     }
@@ -96,7 +130,7 @@ mod tests {
             .await
             .unwrap();
 
-        let quote = retrieve_quote(orderbook, 20_000.0).unwrap();
+        let quote = retrieve_quote_(orderbook, 20_000.0).unwrap();
 
         println!("quote: {quote:#?}");
     }
@@ -106,7 +140,7 @@ mod tests {
         let asks = get_mock_bids();
 
         // empty orderbook
-        let quote = retrieve_quote(
+        let quote = retrieve_quote_(
             Orderbook {
                 platform: Platform::Binance,
                 limit_orders: vec![],
@@ -115,10 +149,10 @@ mod tests {
         );
         assert!(quote.is_err());
 
-        let quote = retrieve_quote(asks.clone(), 246.0);
+        let quote = retrieve_quote_(asks.clone(), 246.0);
         assert!(quote.is_err());
 
-        let quote = retrieve_quote(asks, 245.0)?;
+        let quote = retrieve_quote_(asks, 245.0)?;
         assert_relative_eq!(quote.expected_execution_price, 9.07, max_relative = 0.1);
 
         Ok(())
@@ -129,7 +163,7 @@ mod tests {
         let asks = get_mock_asks();
 
         // empty orderbook
-        let quote = retrieve_quote(
+        let quote = retrieve_quote_(
             Orderbook {
                 platform: Platform::Binance,
                 limit_orders: vec![],
@@ -139,11 +173,11 @@ mod tests {
         assert!(quote.is_err());
 
         // i want to sell more than all the asks combined
-        let quote = retrieve_quote(asks.clone(), 246.0);
+        let quote = retrieve_quote_(asks.clone(), 246.0);
         assert!(quote.is_err());
 
         // first ask and half of the second one
-        let quote = retrieve_quote(asks, 104.5)?;
+        let quote = retrieve_quote_(asks, 104.5)?;
         assert_relative_eq!(quote.expected_execution_price, 8.36, max_relative = 0.1);
 
         Ok(())

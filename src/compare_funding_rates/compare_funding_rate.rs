@@ -17,7 +17,6 @@ pub struct JointFundingRate {
 }
 
 pub async fn compare_funding_rates() -> Result<Vec<JointFundingRate>> {
-    let http_client = Client::new();
     let info_client = InfoClient::new(None, None).await?;
 
     let (binance_tokens, hyperliquid_tokens) = try_join!(

@@ -1,10 +1,8 @@
-use anyhow::{bail, Result};
+use anyhow::Result;
 use chrono::{Duration, Utc};
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::json;
-
-use crate::constants::MAX_DAYS_QUERY_FUNDING_HISTORY;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,18 +36,9 @@ async fn retrieve_hl_funding_history(coin: String) -> Result<Vec<FundingHistory>
 }
 
 /// `coin` without 'quote'. e.g., BTC
-/// `days` > 0 <= `MAX_DAYS_QUERY_FUNDING_HISTORY`
+/// `past_days 1..=15` they are validated on the cli parsing
 /// returns annualized funding history average
 pub async fn retrieve_hl_fh_avg(coin: String, past_days: u16) -> Result<f64> {
-    if past_days > MAX_DAYS_QUERY_FUNDING_HISTORY {
-        bail!(
-            "can only peek up to {} days",
-            MAX_DAYS_QUERY_FUNDING_HISTORY
-        )
-    } else if past_days == 0 {
-        bail!("min 1 days")
-    }
-
     let mut fh = retrieve_hl_funding_history(coin).await?;
     fh.sort_by(|a, b| b.time.cmp(&a.time));
 
