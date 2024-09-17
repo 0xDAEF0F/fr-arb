@@ -6,6 +6,7 @@ mod constants;
 mod funding_history_table;
 mod hyperliquid;
 mod quote;
+mod token_price;
 mod util;
 
 use anyhow::{bail, Result};
@@ -14,7 +15,7 @@ use balances::{
     retrieve_account_open_positions,
 };
 use binance::{
-    retrieve_binance_fh_avg, retrieve_binance_general_info, retrieve_binance_order_book,
+    get_trimmed_quantity, retrieve_binance_fh_avg, retrieve_binance_order_book, retrieve_step_size,
 };
 use clap::Parser;
 use cli_types::{Cli, Commands};
@@ -23,6 +24,7 @@ use funding_history_table::build_avg_fh_table;
 use hyperliquid::{retrieve_hl_fh_avg, retrieve_hl_order_book};
 use numfmt::{Formatter, Precision};
 use quote::retrieve_quote;
+use token_price::retrieve_token_price;
 use tokio::try_join;
 use util::{calculate_effective_rate, BidAsk, Platform};
 
@@ -123,13 +125,7 @@ Hyperliquid: Bids {} — Asks {}
 
             // binance uses a min amount (step size). we are going to use that amount
             // for hyperliquid, too.
-            let step_size = retrieve_binance_general_info()
-                .await?
-                .iter()
-                .find(|t| t.symbol == format!("{token}USDT"))
-                .expect("could not find token")
-                .filters
-                .step_size;
+            let step_size = retrieve_step_size(token.clone()).await?;
 
             // the size we are about to long/short
             let trimmed_qty = (quote_a.size / step_size).round() * step_size;
@@ -159,21 +155,32 @@ Hyperliquid: Bids {} — Asks {}
                 bail!("positions do not exist. check again")
             }
 
+            let token_price = retrieve_token_price(token.clone()).await?;
+            let intended_size_to_exit = amount / token_price;
+            let step_size = retrieve_step_size(token.clone()).await?;
+            let trimmed_size = get_trimmed_quantity(intended_size_to_exit, step_size);
+
             let p1 = &open_positions_token[0];
             let p1_is_buy = if p1.direction == "long" { true } else { false };
+
+            let size = if trimmed_size > p1.size {
+                p1.size
+            } else {
+                trimmed_size
+            };
 
             match p1.platform {
                 Platform::Binance => {
                     let (o1, o2) = try_join!(
-                        binance::execute_mkt_order(token.clone(), p1.size, !p1_is_buy),
-                        hyperliquid::execute_mkt_order(token.clone(), p1.size, p1_is_buy)
+                        binance::execute_mkt_order(token.clone(), size, !p1_is_buy),
+                        hyperliquid::execute_mkt_order(token.clone(), size, p1_is_buy)
                     )?;
                     println!("{o1:#?} — {o2:#?}");
                 }
                 Platform::Hyperliquid => {
                     let (o1, o2) = try_join!(
-                        hyperliquid::execute_mkt_order(token.clone(), p1.size, !p1_is_buy),
-                        binance::execute_mkt_order(token.clone(), p1.size, p1_is_buy)
+                        hyperliquid::execute_mkt_order(token.clone(), size, !p1_is_buy),
+                        binance::execute_mkt_order(token.clone(), size, p1_is_buy)
                     )?;
                     println!("{o1:#?} — {o2:#?}");
                 }
