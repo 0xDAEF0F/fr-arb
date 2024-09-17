@@ -6,6 +6,7 @@ use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
+#[allow(unused)]
 pub struct MktOrderRes {
     pub order_id: u128,
     pub side: String, // BUY || SELL

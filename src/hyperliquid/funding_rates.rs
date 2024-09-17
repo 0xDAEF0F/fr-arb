@@ -32,7 +32,6 @@ struct FundingData {
 #[derive(Debug)]
 pub struct HyperliquidToken {
     pub name: String,
-    pub max_leverage: u8,
     pub hourly_funding_rate: f64,
     pub open_interest: f64, // expressed in USD
 }
@@ -60,7 +59,6 @@ pub async fn retrieve_hl_hourly_funding_rates(
 
         let hyperliquid_token = HyperliquidToken {
             name: token.name,
-            max_leverage: token.max_leverage,
             hourly_funding_rate: funding_rate,
             open_interest: funding_data.open_interest * funding_data.mark_px,
         };

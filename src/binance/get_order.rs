@@ -6,6 +6,7 @@ use serde_aux::field_attributes::deserialize_number_from_string;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(unused)]
 struct BinanceOrder {
     order_id: u128,
     symbol: String,

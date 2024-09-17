@@ -7,6 +7,7 @@ use crate::{
         account_information::retrieve_hl_account_info,
         funding_rates::retrieve_hl_hourly_funding_rates,
     },
+    util::Platform,
 };
 use anyhow::Result;
 use hyperliquid_rust_sdk::InfoClient;
@@ -16,7 +17,7 @@ use tokio::try_join;
 
 #[derive(Debug)]
 pub struct Position {
-    pub platform: String,
+    pub platform: Platform,
     pub coin: String,      // without quote
     pub direction: String, // short || long
     pub size: f64,         // amount of tokens/cryptocurrency
@@ -25,7 +26,7 @@ pub struct Position {
     pub funding_rate: f64, // annualized
 }
 
-async fn retrieve_account_open_positions() -> Result<Vec<Position>> {
+pub async fn retrieve_account_open_positions() -> Result<Vec<Position>> {
     let info_client = InfoClient::new(None, None).await.unwrap();
 
     let (binance_acct_info, hyperliquid_acct_info, binance_funding_rates, hl_funding_rates) = try_join!(
@@ -52,7 +53,7 @@ async fn retrieve_account_open_positions() -> Result<Vec<Position>> {
                 + p.unrealized_profit.parse::<f64>().unwrap())
                 / size;
             Position {
-                platform: "binance".to_string(),
+                platform: Platform::Binance,
                 coin,
                 direction,
                 entry_price,
@@ -82,7 +83,7 @@ async fn retrieve_account_open_positions() -> Result<Vec<Position>> {
             let size = p.position.szi.parse::<f64>().unwrap().abs();
             let entry_price = p.position.entry_px.parse::<f64>().unwrap();
             Position {
-                platform: "hyperliquid".to_string(),
+                platform: Platform::Hyperliquid,
                 coin,
                 direction,
                 entry_price,
@@ -130,7 +131,7 @@ pub async fn build_account_open_positions_table() -> Result<String> {
         let fmt_entry_price = format!("${:.2}", position.entry_price);
         let pnl = format!("${:.2}", position.pnl);
         table.add_row(Row::new(vec![
-            Cell::new(position.platform.as_str()),
+            Cell::new(format!("{:?}", position.platform).as_str()),
             Cell::new(position.coin.as_str()),
             Cell::new(position.direction.as_str()),
             Cell::new(position.size.to_string().as_str()),

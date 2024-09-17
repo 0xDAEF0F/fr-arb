@@ -5,6 +5,7 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenInterest {
+    #[allow(unused)]
     pub symbol: String,
     pub open_interest: String,
 }

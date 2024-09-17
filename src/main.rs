@@ -8,17 +8,23 @@ mod hyperliquid;
 mod quote;
 mod util;
 
-use anyhow::Result;
-use balances::{build_account_balance_table, build_account_open_positions_table};
-use binance::{retrieve_binance_fh_avg, retrieve_binance_general_info};
+use anyhow::{bail, Result};
+use balances::{
+    build_account_balance_table, build_account_open_positions_table,
+    retrieve_account_open_positions,
+};
+use binance::{
+    retrieve_binance_fh_avg, retrieve_binance_general_info, retrieve_binance_order_book,
+};
 use clap::Parser;
 use cli_types::{Cli, Commands};
 use compare_funding_rates::build_funding_rate_table;
 use funding_history_table::build_avg_fh_table;
-use hyperliquid::retrieve_hl_fh_avg;
+use hyperliquid::{retrieve_hl_fh_avg, retrieve_hl_order_book};
+use numfmt::{Formatter, Precision};
 use quote::retrieve_quote;
 use tokio::try_join;
-use util::{calculate_effective_rate, Platform};
+use util::{calculate_effective_rate, BidAsk, Platform};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -67,11 +73,51 @@ async fn main() -> Result<()> {
                 quote_a.platform, short_execution_price, quote_b.platform, long_execution_price
             );
         }
-        Commands::ManagePosition {
-            token,
-            amount,
-            position_action: _,
-        } => {
+        Commands::OrderbookDepth { token } => {
+            let (b_bid, b_ask, hl_bid, hl_ask) = try_join!(
+                retrieve_binance_order_book(token.clone(), BidAsk::Bid),
+                retrieve_binance_order_book(token.clone(), BidAsk::Ask),
+                retrieve_hl_order_book(token.clone(), BidAsk::Bid),
+                retrieve_hl_order_book(token.clone(), BidAsk::Ask),
+            )?;
+
+            let mut f = Formatter::new()
+                .precision(Precision::Decimals(0))
+                .prefix("$")?
+                .separator(',')?;
+
+            let b_bid = b_bid
+                .limit_orders
+                .iter()
+                .fold(0.0, |acc, lo| acc + lo.price * lo.size);
+            let b_ask = b_ask
+                .limit_orders
+                .iter()
+                .fold(0.0, |acc, lo| acc + lo.price * lo.size);
+            let hl_bid = hl_bid
+                .limit_orders
+                .iter()
+                .fold(0.0, |acc, lo| acc + lo.price * lo.size);
+            let hl_ask = hl_ask
+                .limit_orders
+                .iter()
+                .fold(0.0, |acc, lo| acc + lo.price * lo.size);
+
+            let b_bid = f.fmt2(b_bid).to_string();
+            let b_ask = f.fmt2(b_ask).to_string();
+            let hl_bid = f.fmt2(hl_bid).to_string();
+            let hl_ask = f.fmt2(hl_ask).to_string();
+
+            let text = format!(
+                r#"Orderbook Depth {}
+Binance: Bids {} — Asks {}
+Hyperliquid: Bids {} — Asks {}
+"#,
+                token, b_bid, b_ask, hl_bid, hl_ask
+            );
+            println!("{text}");
+        }
+        Commands::Entry { token, amount } => {
             // quote_a is short/sell
             let (quote_a, _quote_b) = retrieve_quote(token.clone(), amount).await?;
 
@@ -101,6 +147,37 @@ async fn main() -> Result<()> {
 
             println!("order filled one: {:?}", b);
             println!("order filled two: {:?}", h);
+        }
+        Commands::Exit { token, amount } => {
+            let open_positions_token = retrieve_account_open_positions()
+                .await?
+                .into_iter()
+                .filter(|p| p.coin == token)
+                .collect::<Vec<_>>();
+
+            if open_positions_token.len() != 2 {
+                bail!("positions do not exist. check again")
+            }
+
+            let p1 = &open_positions_token[0];
+            let p1_is_buy = if p1.direction == "long" { true } else { false };
+
+            match p1.platform {
+                Platform::Binance => {
+                    let (o1, o2) = try_join!(
+                        binance::execute_mkt_order(token.clone(), p1.size, !p1_is_buy),
+                        hyperliquid::execute_mkt_order(token.clone(), p1.size, p1_is_buy)
+                    )?;
+                    println!("{o1:#?} — {o2:#?}");
+                }
+                Platform::Hyperliquid => {
+                    let (o1, o2) = try_join!(
+                        hyperliquid::execute_mkt_order(token.clone(), p1.size, !p1_is_buy),
+                        binance::execute_mkt_order(token.clone(), p1.size, p1_is_buy)
+                    )?;
+                    println!("{o1:#?} — {o2:#?}");
+                }
+            }
         }
     }
 

@@ -2,6 +2,7 @@ use super::Platform;
 use serde::Deserialize;
 
 #[derive(Debug, Clone)]
+#[allow(unused)]
 pub struct OrderFilled {
     pub token: String,
     pub platform: Platform,

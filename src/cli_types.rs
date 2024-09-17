@@ -1,5 +1,5 @@
 use crate::constants::MAX_DAYS_QUERY_FUNDING_HISTORY;
-use clap::{value_parser, Parser, Subcommand, ValueEnum};
+use clap::{value_parser, Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -33,22 +33,28 @@ pub enum Commands {
         #[arg(short, long)]
         amount: f64,
     },
-    /// enters or sells from a funding rate position
-    ManagePosition {
+    /// bid_ask depth of the orderbook for a token in both platforms
+    OrderbookDepth {
+        /// name of the token
+        #[arg(short, long, value_parser = |s: &str| anyhow::Ok(s.to_uppercase()))]
+        token: String,
+    },
+    /// enters from a funding rate position
+    Entry {
         /// name of the token
         #[arg(short, long, value_parser = |s: &str| anyhow::Ok(s.to_uppercase()))]
         token: String,
         /// amount to execute (USD)
         #[arg(short, long)]
         amount: f64,
-        #[arg(short, long, value_enum)]
-        position_action: PositionAction,
     },
-}
-
-#[derive(Clone, Copy, ValueEnum)]
-#[value(rename_all = "lowercase")]
-pub enum PositionAction {
-    Enter,
-    Exit,
+    /// exits from a funding rate position
+    Exit {
+        /// name of the token
+        #[arg(short, long, value_parser = |s: &str| anyhow::Ok(s.to_uppercase()))]
+        token: String,
+        /// amount to execute (USD)
+        #[arg(short, long)]
+        amount: f64,
+    },
 }

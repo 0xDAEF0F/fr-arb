@@ -3,7 +3,6 @@ use crate::hyperliquid::funding_rates::retrieve_hl_hourly_funding_rates;
 use crate::util::calculate_effective_rate;
 use anyhow::Result;
 use hyperliquid_rust_sdk::InfoClient;
-use reqwest::Client;
 use tokio::try_join;
 
 #[derive(Debug)]

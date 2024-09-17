@@ -5,7 +5,8 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FundingHistory {
-    symbol: String,       // token w/ quote at end
+    #[allow(unused)]
+    symbol: String, // token w/ quote at end
     funding_rate: String, // 8 || 4 hours
     funding_time: u64,    // ms timestamp
 }

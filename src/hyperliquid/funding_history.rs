@@ -7,7 +7,6 @@ use serde_json::json;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FundingHistory {
-    coin: String,         // token all caps
     funding_rate: String, // hourly
     time: u64,            // ms timestamp
 }
