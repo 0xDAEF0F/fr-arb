@@ -109,35 +109,12 @@ fn calculate_pct_difference(execution_price: f64, first_price: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::util::{BidAsk, LimitOrder, Platform};
-    use crate::{binance::retrieve_binance_order_book, hyperliquid::retrieve_hl_order_book};
+    use crate::util::{LimitOrder, Platform};
     use approx::assert_relative_eq;
 
-    #[tokio::test]
-    async fn test_quote_binance() {
-        let orderbook = retrieve_binance_order_book("ETH".to_string(), BidAsk::Ask)
-            .await
-            .unwrap();
-
-        let quote = retrieve_quote_(orderbook, 9_000_000.0).unwrap();
-
-        println!("quote: {quote:#?}");
-    }
-
-    #[tokio::test]
-    async fn test_quote_hl() {
-        let orderbook = retrieve_hl_order_book("LOOM".to_string(), BidAsk::Ask)
-            .await
-            .unwrap();
-
-        let quote = retrieve_quote_(orderbook, 20_000.0).unwrap();
-
-        println!("quote: {quote:#?}");
-    }
-
     #[test]
-    fn test_buy_mock() -> Result<()> {
-        let asks = get_mock_bids();
+    fn test_sell_scenario() -> Result<()> {
+        let bids = get_mock_bids();
 
         // empty orderbook
         let quote = retrieve_quote_(
@@ -149,17 +126,17 @@ mod tests {
         );
         assert!(quote.is_err());
 
-        let quote = retrieve_quote_(asks.clone(), 246.0);
+        let quote = retrieve_quote_(bids.clone(), 246.0);
         assert!(quote.is_err());
 
-        let quote = retrieve_quote_(asks, 245.0)?;
+        let quote = retrieve_quote_(bids, 245.0)?;
         assert_relative_eq!(quote.expected_execution_price, 9.07, max_relative = 0.1);
 
         Ok(())
     }
 
     #[test]
-    fn test_sell_mock() -> Result<()> {
+    fn test_buy_scenario() -> Result<()> {
         let asks = get_mock_asks();
 
         // empty orderbook
@@ -181,20 +158,6 @@ mod tests {
         assert_relative_eq!(quote.expected_execution_price, 8.36, max_relative = 0.1);
 
         Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_depth_hl_orderbook() {
-        let result = retrieve_hl_order_book("BTC".to_string(), BidAsk::Ask)
-            .await
-            .unwrap();
-
-        let total_value_of_order_book: f64 = result
-            .limit_orders
-            .iter()
-            .fold(0.0, |acc, curr| acc + (curr.price * curr.size));
-
-        println!("Total value of orderbook: {}", total_value_of_order_book);
     }
 
     #[test]

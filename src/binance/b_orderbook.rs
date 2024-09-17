@@ -63,22 +63,12 @@ mod tests {
     #[tokio::test]
     async fn test_retrieve_binance_asks() {
         let pair = "ETH".to_string();
-        let result = retrieve_binance_order_book(pair, BidAsk::Ask).await;
-
-        println!("{:#?}", result.unwrap());
-    }
-
-    #[tokio::test]
-    async fn test_calculate_depth_orderbook() {
-        let result = retrieve_binance_order_book("ETH".to_string(), BidAsk::Ask)
+        let result = retrieve_binance_order_book(pair, BidAsk::Ask)
             .await
             .unwrap();
 
-        let total_value_of_order_book: f64 = result
-            .limit_orders
-            .iter()
-            .fold(0.0, |acc, curr| acc + (curr.price * curr.size));
+        println!("{:#?}", result);
 
-        println!("Total value of orderbook: {}", total_value_of_order_book);
+        assert_eq!(result.platform, Platform::Binance);
     }
 }

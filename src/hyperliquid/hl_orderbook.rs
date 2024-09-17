@@ -64,5 +64,7 @@ mod tests {
             .unwrap();
 
         println!("{:#?}", result);
+
+        assert_eq!(result.platform, Platform::Hyperliquid);
     }
 }
