@@ -1,14 +1,14 @@
 use anyhow::Result;
 use reqwest::Client;
 use serde::Deserialize;
+use serde_aux::field_attributes::deserialize_number_from_string;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FundingHistory {
-    #[allow(unused)]
-    symbol: String, // token w/ quote at end
-    funding_rate: String, // 8 || 4 hours
-    funding_time: u64,    // ms timestamp
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    funding_rate: f64,
+    funding_time: u64, // ms timestamp
 }
 
 async fn retrieve_binance_funding_history(token: String) -> Result<Vec<FundingHistory>> {
@@ -34,16 +34,16 @@ pub async fn retrieve_binance_fh_avg(token: String, past_days: u16) -> Result<f6
     fh.sort_by(|a, b| b.funding_time.cmp(&a.funding_time));
 
     // diff between two consecutive funding times `&fh[0] > &fh[1]`
-    let funding_interval = (&fh[0].funding_time - &fh[1].funding_time) / (1000 * 60 * 60);
+    let funding_interval = (fh[0].funding_time - fh[1].funding_time) / (1000 * 60 * 60);
     let take: u16 = if funding_interval == 8 { 3 } else { 6 };
 
     let sum: f64 = fh
         .iter()
         .take((past_days * take).into())
-        .map(|e| e.funding_rate.parse::<f64>().unwrap())
+        .map(|e| e.funding_rate)
         .sum();
 
-    let mean_fr = (sum / f64::from(past_days * take)) * 24.0 * 365.0 * 100.0;
+    let mean_fr = (sum * 24.0 * 365.0 * 100.0) / f64::from(past_days * take);
 
     Ok(mean_fr)
 }

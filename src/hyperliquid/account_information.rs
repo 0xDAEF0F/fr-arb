@@ -15,8 +15,6 @@ pub struct HlAccountRes {
 #[serde(rename_all = "camelCase")]
 pub struct CrossMarginSummary {
     pub account_value: String,
-    total_ntl_pos: String, // notional position
-    total_margin_used: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -30,7 +28,6 @@ pub struct Position {
     pub coin: String,
     pub szi: String, // negative == Short and positive == Long
     pub entry_px: String,
-    pub position_value: String,
     pub unrealized_pnl: String,
 }
 

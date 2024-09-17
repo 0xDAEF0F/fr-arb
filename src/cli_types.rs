@@ -40,7 +40,7 @@ pub enum Commands {
         token: String,
     },
     /// enters from a funding rate position
-    Entry {
+    Enter {
         /// name of the token
         #[arg(short, long, value_parser = |s: &str| anyhow::Ok(s.to_uppercase()))]
         token: String,

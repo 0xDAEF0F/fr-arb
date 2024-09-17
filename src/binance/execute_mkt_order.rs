@@ -1,27 +1,24 @@
 use super::get_binance_avg_price;
 use crate::util::{generate_hmac_signature, OrderFilled, Platform, Side};
-use anyhow::Result;
+use anyhow::{bail, Result};
 use reqwest::Client;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-#[allow(unused)]
 pub struct MktOrderRes {
     pub order_id: u128,
-    pub side: String, // BUY || SELL
-    #[serde(rename = "symbol")]
-    pub token: String,
 }
 
 pub async fn execute_mkt_order(token: String, size: f64, is_buy: bool) -> Result<OrderFilled> {
     let client = Client::new();
     let timestamp = chrono::Utc::now().timestamp_millis();
 
-    let side = if is_buy { Side::BUY } else { Side::SELL };
+    let side = if is_buy { Side::Buy } else { Side::Sell };
     let signature = generate_hmac_signature(Some(
         format!(
-            "symbol={token}USDT&side={side:?}&type=MARKET&quantity={size}&timestamp={timestamp}"
+            "symbol={token}USDT&side={}&type=MARKET&quantity={size}&timestamp={timestamp}",
+            format!("{:?}", side).to_uppercase()
         )
         .to_string(),
     ))?;
@@ -32,6 +29,11 @@ pub async fn execute_mkt_order(token: String, size: f64, is_buy: bool) -> Result
         .header("X-MBX-APIKEY", std::env::var("BINANCE_API_KEY")?)
         .send()
         .await?;
+
+    if !res.status().is_success() {
+        let error = res.text().await?;
+        bail!("Binance order failed. {}", error)
+    }
 
     let binance_account_res: MktOrderRes = res.json().await?;
 
@@ -59,7 +61,7 @@ mod tests {
     async fn test_mkt_order() -> Result<()> {
         dotenv::dotenv().ok();
 
-        let res = execute_mkt_order("TIA".to_string(), 11.0, false).await?;
+        let res = execute_mkt_order("TIA".to_string(), 7000.0, true).await?;
 
         println!("{res:#?}");
 

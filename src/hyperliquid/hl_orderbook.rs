@@ -33,7 +33,7 @@ pub async fn retrieve_hl_order_book(token: String, ba: BidAsk) -> Result<Orderbo
     let orderbook: ResHyperliquidOrderBook = response.json().await?;
 
     let ba = match ba {
-        BidAsk::Bid => orderbook.levels.into_iter().nth(0).unwrap(),
+        BidAsk::Bid => orderbook.levels.into_iter().next().unwrap(),
         BidAsk::Ask => orderbook.levels.into_iter().nth(1).unwrap(),
     };
 

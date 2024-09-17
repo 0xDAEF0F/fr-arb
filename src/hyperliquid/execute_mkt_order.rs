@@ -32,7 +32,7 @@ pub async fn execute_mkt_order(token: String, size: f64, is_buy: bool) -> Result
                 platform: Platform::Hyperliquid,
                 size: order.total_sz.parse().unwrap(),
                 avg_price: order.avg_px.parse().unwrap(),
-                side: if is_buy { Side::BUY } else { Side::SELL },
+                side: if is_buy { Side::Buy } else { Side::Sell },
             });
         }
     }

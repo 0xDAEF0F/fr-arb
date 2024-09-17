@@ -79,9 +79,8 @@ fn retrieve_quote_(orderbook: Orderbook, amount: f64) -> Result<Quote> {
     }
 
     // order book does not have enough orders for the amount
-    if remaining_amount > 0.0 {
-        // TODO: remove this line. temporary
-        println!("remaining_amount: {remaining_amount}");
+    // leave one dollar as dust (more than enough)
+    if remaining_amount > 1.0 {
         bail!("orderbook can't cover the amount to buy/sell")
     }
 

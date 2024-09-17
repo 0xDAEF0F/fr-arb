@@ -128,7 +128,7 @@ pub async fn build_account_open_positions_table() -> Result<String> {
 
     for position in open_positions {
         let fmt_annualized_fr = f.fmt2(position.funding_rate * 100.0);
-        let fmt_entry_price = format!("${:.2}", position.entry_price);
+        let fmt_entry_price = format!("${:.5}", position.entry_price);
         let pnl = format!("${:.2}", position.pnl);
         table.add_row(Row::new(vec![
             Cell::new(format!("{:?}", position.platform).as_str()),

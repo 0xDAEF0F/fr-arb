@@ -119,7 +119,7 @@ Hyperliquid: Bids {} — Asks {}
             );
             println!("{text}");
         }
-        Commands::Entry { token, amount } => {
+        Commands::Enter { token, amount } => {
             // quote_a is short/sell
             let (quote_a, _quote_b) = retrieve_quote(token.clone(), amount).await?;
 
@@ -161,7 +161,7 @@ Hyperliquid: Bids {} — Asks {}
             let trimmed_size = get_trimmed_quantity(intended_size_to_exit, step_size);
 
             let p1 = &open_positions_token[0];
-            let p1_is_buy = if p1.direction == "long" { true } else { false };
+            let p1_is_buy = p1.direction == "long";
 
             let size = if trimmed_size > p1.size {
                 p1.size

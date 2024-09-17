@@ -6,20 +6,8 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BinanceAccountRes {
-    pub total_wallet_balance: String,
-    total_unrealized_profit: String,
     pub total_margin_balance: String,
-    assets: Vec<Asset>,
     pub positions: Vec<Position>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Asset {
-    asset: String,
-    wallet_balance: String,
-    unrealized_profit: String,
-    margin_balance: String,
 }
 
 #[derive(Debug, Deserialize)]
