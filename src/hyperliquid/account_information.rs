@@ -31,8 +31,14 @@ pub struct AssetPosition {
 pub struct Position {
     pub coin: String,
     pub szi: String, // negative == Short and positive == Long
+    #[allow(dead_code)]
     pub entry_px: String,
     pub unrealized_pnl: String,
+    #[serde(
+        deserialize_with = "deserialize_number_from_string",
+        rename = "positionValue"
+    )]
+    pub notional: f64,
 }
 
 pub async fn retrieve_hl_account_info() -> Result<HlAccountRes> {

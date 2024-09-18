@@ -21,9 +21,9 @@ pub struct Position {
     pub coin: String,      // without quote
     pub direction: String, // short || long
     pub size: f64,         // amount of tokens/cryptocurrency
-    pub entry_price: f64,
     pub pnl: f64,
     pub funding_rate: f64, // annualized
+    pub notional: f64,     // notional value of position USD
 }
 
 pub async fn retrieve_account_open_positions() -> Result<Vec<Position>> {
@@ -47,13 +47,12 @@ pub async fn retrieve_account_open_positions() -> Result<Vec<Position>> {
                 .map(|rate| (rate.hourly_funding_rate * 24.0 * 365.0))
                 .expect("funding rate not found");
             let direction = p.position_side.to_lowercase();
-            let entry_price = (p.notional.abs() - p.unrealized_profit) / p.size;
             Position {
                 platform: Platform::Binance,
                 coin,
                 direction,
-                entry_price,
                 funding_rate,
+                notional: p.notional,
                 pnl: p.unrealized_profit,
                 size: p.size,
             }
@@ -77,12 +76,11 @@ pub async fn retrieve_account_open_positions() -> Result<Vec<Position>> {
                 "short".to_string()
             };
             let size = p.position.szi.parse::<f64>().unwrap().abs();
-            let entry_price = p.position.entry_px.parse::<f64>().unwrap();
             Position {
                 platform: Platform::Hyperliquid,
                 coin,
                 direction,
-                entry_price,
+                notional: p.position.notional,
                 funding_rate,
                 pnl,
                 size,
@@ -107,33 +105,29 @@ pub async fn build_account_open_positions_table() -> Result<String> {
 
     let mut table = Table::new();
 
-    table.add_row(Row::new(vec![Cell::new("open positions")]));
     table.add_row(Row::new(vec![
-        Cell::new("platform"),
-        Cell::new("coin"),
-        Cell::new("direction"),
-        Cell::new("size (tokens)"),
-        Cell::new("entry price"),
-        Cell::new("pnl"),
-        Cell::new("funding rate (apr)"),
+        Cell::new("Platform"),
+        Cell::new("Token"),
+        Cell::new("Side"),
+        Cell::new("Notional amt"),
+        Cell::new("Pnl"),
+        Cell::new("Funding rate (apr)"),
     ]));
 
     let mut f = Formatter::new()
         .precision(numfmt::Precision::Decimals(2))
-        .suffix("%")?;
+        .prefix("$")?
+        .separator(',')?;
 
     for position in open_positions {
-        let fmt_annualized_fr = f.fmt2(position.funding_rate * 100.0);
-        let fmt_entry_price = format!("${:.5}", position.entry_price);
-        let pnl = format!("${:.2}", position.pnl);
+        let fmt_annualized_fr = format!("{:.2}%", position.funding_rate * 100.0);
         table.add_row(Row::new(vec![
-            Cell::new(format!("{:?}", position.platform).as_str()),
-            Cell::new(position.coin.as_str()),
-            Cell::new(position.direction.as_str()),
-            Cell::new(position.size.to_string().as_str()),
-            Cell::new(fmt_entry_price.as_str()),
-            Cell::new(pnl.as_str()),
-            Cell::new(fmt_annualized_fr),
+            Cell::new(&format!("{:?}", position.platform)),
+            Cell::new(&position.coin),
+            Cell::new(&position.direction),
+            Cell::new(f.fmt2(position.notional)),
+            Cell::new(f.fmt2(position.pnl)),
+            Cell::new(&fmt_annualized_fr),
         ]));
     }
 

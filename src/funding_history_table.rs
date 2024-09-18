@@ -1,8 +1,7 @@
+use crate::util::calculate_effective_rate;
 use anyhow::Result;
 use numfmt::Formatter;
 use prettytable::{Cell, Row, Table};
-
-use crate::util::calculate_effective_rate;
 
 pub fn build_past_fr_table(
     binance_daily_rates: Vec<f64>,
