@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use reqwest::Client;
 use serde::Deserialize;
 use serde_aux::field_attributes::deserialize_number_from_string;
@@ -23,13 +23,14 @@ async fn retrieve_binance_funding_history(token: String) -> Result<Vec<FundingHi
 
     let fh: Vec<FundingHistory> = res.json().await?;
 
+    if fh.is_empty() {
+        bail!("No binance funding history for: {token}");
+    }
+
     Ok(fh)
 }
 
-/// `coin` without 'quote'. e.g., BTC
-/// `past_days 1..=15` they are validated on the cli parsing
-/// returns annualized funding history average
-pub async fn retrieve_binance_fh_avg(token: String, past_days: u16) -> Result<f64> {
+pub async fn retrieve_binance_past_daily_fh(token: String, past_days: u16) -> Result<Vec<f64>> {
     let mut fh = retrieve_binance_funding_history(token).await?;
     fh.sort_by(|a, b| b.funding_time.cmp(&a.funding_time));
 
@@ -37,15 +38,13 @@ pub async fn retrieve_binance_fh_avg(token: String, past_days: u16) -> Result<f6
     let funding_interval = (fh[0].funding_time - fh[1].funding_time) / (1000 * 60 * 60);
     let take: u16 = if funding_interval == 8 { 3 } else { 6 };
 
-    let sum: f64 = fh
-        .iter()
-        .take((past_days * take).into())
-        .map(|e| e.funding_rate)
-        .sum();
+    let past_daily_fr: Vec<f64> = fh
+        .chunks_exact(take.into())
+        .map(|c| c.iter().map(|fh| fh.funding_rate).sum::<f64>())
+        .take(past_days.into())
+        .collect();
 
-    let mean_fr = (sum * 24.0 * 365.0 * 100.0) / f64::from(past_days * take);
-
-    Ok(mean_fr)
+    Ok(past_daily_fr)
 }
 
 #[cfg(test)]
@@ -65,7 +64,7 @@ mod tests {
     async fn test_retrieve_hl_fh_avg() -> Result<()> {
         let coin = "WIF".to_string();
         let past_days = 3;
-        let avg_funding_rate = retrieve_binance_fh_avg(coin, past_days).await?;
+        let avg_funding_rate = retrieve_binance_past_daily_fh(coin, past_days).await?;
 
         println!("{avg_funding_rate:#?}");
 

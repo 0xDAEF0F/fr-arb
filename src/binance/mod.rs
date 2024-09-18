@@ -12,7 +12,7 @@ mod step_size;
 
 pub use b_orderbook::retrieve_binance_order_book;
 pub use execute_mkt_order::execute_mkt_order;
-pub use funding_history::retrieve_binance_fh_avg;
+pub use funding_history::retrieve_binance_past_daily_fh;
 pub use general_info::retrieve_binance_general_info;
 pub use get_order::get_binance_avg_price;
 pub use open_interest::retrieve_token_open_interest;

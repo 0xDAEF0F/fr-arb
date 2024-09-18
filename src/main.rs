@@ -15,18 +15,19 @@ use balances::{
     retrieve_account_open_positions,
 };
 use binance::{
-    get_trimmed_quantity, retrieve_binance_fh_avg, retrieve_binance_order_book, retrieve_step_size,
+    get_trimmed_quantity, retrieve_binance_order_book, retrieve_binance_past_daily_fh,
+    retrieve_step_size,
 };
 use clap::Parser;
 use cli_types::{Cli, Commands};
 use compare_funding_rates::build_funding_rate_table;
-use funding_history_table::build_avg_fh_table;
-use hyperliquid::{retrieve_hl_fh_avg, retrieve_hl_order_book};
+use funding_history_table::build_past_fr_table;
+use hyperliquid::{retrieve_hl_order_book, retrieve_hl_past_daily_fh};
 use numfmt::{Formatter, Precision};
 use quote::retrieve_quote;
 use token_price::retrieve_token_price;
 use tokio::try_join;
-use util::{calculate_effective_rate, BidAsk, Platform};
+use util::{BidAsk, Platform};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -47,29 +48,32 @@ async fn main() -> Result<()> {
             println!("{funding_rates_table}");
         }
         Commands::FundingHistory { token, past_days } => {
-            let (b_avg_fh, hl_avg_fh) = try_join!(
-                retrieve_binance_fh_avg(token.clone(), past_days.into()),
-                retrieve_hl_fh_avg(token.clone(), past_days.into())
+            let (b_fh, hl_fh) = try_join!(
+                retrieve_binance_past_daily_fh(token.clone(), past_days.into()),
+                retrieve_hl_past_daily_fh(token.clone(), past_days.into())
             )?;
-            let effective_rate = calculate_effective_rate(b_avg_fh, hl_avg_fh);
-            let table_str = build_avg_fh_table(token, b_avg_fh, hl_avg_fh, effective_rate)?;
-            println!("{table_str}");
+            let past_daily_rates = build_past_fr_table(b_fh, hl_fh)?;
+            println!("{past_daily_rates}");
         }
         Commands::Quote { token, amount } => {
             let (quote_a, quote_b) = retrieve_quote(token, amount).await?;
 
             let slippage_bips = (quote_a.slippage + quote_b.slippage) * 10_000.0;
-            let platform_fees_bips = (quote_a.platform_fees + quote_b.platform_fees) * 10_000.0;
+            let platform_fees_bips =
+                ((quote_a.platform_fees + quote_b.platform_fees) / 2.0) * 10_000.0;
 
             let short_execution_price = quote_a.expected_execution_price;
             let long_execution_price = quote_b.expected_execution_price;
 
-            println!("slippage: {}", slippage_bips);
+            println!("slippage: {:.3}", slippage_bips);
             println!("platform fees: {}", platform_fees_bips);
-            println!("total fees (bips): {}", slippage_bips + platform_fees_bips);
+            println!(
+                "total fees (bips): {:.3}",
+                slippage_bips + platform_fees_bips
+            );
 
             println!(
-                "short price {:?}: {} — long price {:?}: {}",
+                "short price {:?}: {:.4} — long price {:?}: {:.4}",
                 quote_a.platform, short_execution_price, quote_b.platform, long_execution_price
             );
         }

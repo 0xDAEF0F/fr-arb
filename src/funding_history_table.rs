@@ -2,11 +2,11 @@ use anyhow::Result;
 use numfmt::Formatter;
 use prettytable::{Cell, Row, Table};
 
-pub fn build_avg_fh_table(
-    coin: String,
-    b_avg_fh: f64,
-    hl_avg_fh: f64,
-    effective_rate: f64,
+use crate::util::calculate_effective_rate;
+
+pub fn build_past_fr_table(
+    binance_daily_rates: Vec<f64>,
+    hl_daily_rates: Vec<f64>,
 ) -> Result<String> {
     let mut f = Formatter::new()
         .precision(numfmt::Precision::Decimals(2))
@@ -14,22 +14,36 @@ pub fn build_avg_fh_table(
 
     let mut table = Table::new();
 
-    table.add_row(Row::new(vec![
-        Cell::new(coin.to_lowercase().as_str()),
-        Cell::new("FR (APR)"),
-    ]));
-    table.add_row(Row::new(vec![
-        Cell::new("Binance"),
-        Cell::new(f.fmt2(b_avg_fh)),
-    ]));
-    table.add_row(Row::new(vec![
-        Cell::new("Hyperliquid"),
-        Cell::new(f.fmt2(hl_avg_fh)),
-    ]));
-    table.add_row(Row::new(vec![
-        Cell::new("Effective Rate"),
-        Cell::new(f.fmt2(effective_rate)),
-    ]));
+    let mut row = Row::new(vec![Cell::new("Daily rates")]);
+    for i in 0..binance_daily_rates.len() {
+        row.add_cell(Cell::new(&format!("Day {}", i + 1)));
+    }
+    table.add_row(row);
+
+    let mut row = Row::new(vec![Cell::new("Binance")]);
+    for rate in binance_daily_rates.iter() {
+        let annualized_rate = rate * 365.0 * 100.0;
+        let fmt_annualized_rate = f.fmt2(annualized_rate);
+        row.add_cell(Cell::new(fmt_annualized_rate));
+    }
+    table.add_row(row);
+
+    let mut row = Row::new(vec![Cell::new("Hyperliquid")]);
+    for rate in hl_daily_rates.iter() {
+        let annualized_rate = rate * 365.0 * 100.0;
+        let fmt_annualized_rate = f.fmt2(annualized_rate);
+        row.add_cell(Cell::new(fmt_annualized_rate));
+    }
+    table.add_row(row);
+
+    let mut row = Row::new(vec![Cell::new("Total")]);
+    for (&b, &h) in binance_daily_rates.iter().zip(hl_daily_rates.iter()) {
+        let er = calculate_effective_rate(b, h);
+        let annualized_rate = er * 365.0 * 100.0;
+        let fmt_annualized_rate = f.fmt2(annualized_rate);
+        row.add_cell(Cell::new(fmt_annualized_rate));
+    }
+    table.add_row(row);
 
     Ok(table.to_string())
 }

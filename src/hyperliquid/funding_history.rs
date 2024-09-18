@@ -36,22 +36,17 @@ async fn retrieve_hl_funding_history(token: String) -> Result<Vec<FundingHistory
     Ok(fh)
 }
 
-/// `coin` without 'quote'. e.g., BTC
-/// `past_days 1..=15` they are validated on the cli parsing
-/// returns annualized funding history average
-pub async fn retrieve_hl_fh_avg(coin: String, past_days: u16) -> Result<f64> {
+pub async fn retrieve_hl_past_daily_fh(coin: String, past_days: u16) -> Result<Vec<f64>> {
     let mut fh = retrieve_hl_funding_history(coin).await?;
     fh.sort_by(|a, b| b.time.cmp(&a.time));
 
-    let sum: f64 = fh
-        .iter()
-        .take((past_days * 24).into())
-        .map(|e| e.funding_rate)
-        .sum();
+    let past_daily_fr: Vec<f64> = fh
+        .chunks_exact(24)
+        .map(|c| c.iter().map(|fh| fh.funding_rate).sum::<f64>())
+        .take(past_days.into())
+        .collect();
 
-    let mean_fr = (sum * 24.0 * 365.0 * 100.0) / f64::from(past_days * 24);
-
-    Ok(mean_fr)
+    Ok(past_daily_fr)
 }
 
 #[cfg(test)]
@@ -71,7 +66,7 @@ mod tests {
     async fn test_retrieve_hl_fh_avg() -> Result<()> {
         let coin = "BTC".to_string();
         let past_days = 1;
-        let btc_ten_day_avg_funding_rate = retrieve_hl_fh_avg(coin, past_days).await?;
+        let btc_ten_day_avg_funding_rate = retrieve_hl_past_daily_fh(coin, past_days).await?;
 
         println!("{btc_ten_day_avg_funding_rate:#?}");
 
