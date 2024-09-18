@@ -15,14 +15,11 @@ pub async fn execute_mkt_order(token: String, size: f64, is_buy: bool) -> Result
     let timestamp = chrono::Utc::now().timestamp_millis();
 
     let side = if is_buy { Side::Buy } else { Side::Sell };
-    let signature = generate_hmac_signature(Some(
-        format!(
-            "symbol={token}USDT&side={}&type=MARKET&quantity={size}&timestamp={timestamp}",
-            format!("{:?}", side).to_uppercase()
-        )
-        .to_string(),
-    ))?;
-    let url = format!("https://fapi.binance.com/fapi/v1/order?symbol={token}USDT&side={side:?}&type=MARKET&quantity={size}&timestamp={timestamp}&signature={signature}");
+    let side_ = format!("{:?}", side).to_uppercase();
+    let signature = generate_hmac_signature(Some(format!(
+        "symbol={token}USDT&side={side_}&type=MARKET&quantity={size}&timestamp={timestamp}"
+    )))?;
+    let url = format!("https://fapi.binance.com/fapi/v1/order?symbol={token}USDT&side={side_}&type=MARKET&quantity={size}&timestamp={timestamp}&signature={signature}");
 
     let res = client
         .post(url)

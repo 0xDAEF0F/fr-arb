@@ -49,8 +49,6 @@ pub async fn retrieve_hl_fh_avg(coin: String, past_days: u16) -> Result<f64> {
         .map(|e| e.funding_rate)
         .sum();
 
-    println!("sum of fr: {}", sum);
-
     let mean_fr = (sum * 24.0 * 365.0 * 100.0) / f64::from(past_days * 24);
 
     Ok(mean_fr)

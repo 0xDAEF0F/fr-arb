@@ -2,6 +2,7 @@ use crate::constants::HYPERLIQUID_PUBLIC_KEY;
 use anyhow::Result;
 use reqwest::Client;
 use serde::Deserialize;
+use serde_aux::field_attributes::deserialize_number_from_string;
 use serde_json::json;
 
 #[derive(Deserialize, Debug)]
@@ -14,7 +15,10 @@ pub struct HlAccountRes {
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct CrossMarginSummary {
-    pub account_value: String,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub account_value: f64,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub total_ntl_pos: f64,
 }
 
 #[derive(Deserialize, Debug)]

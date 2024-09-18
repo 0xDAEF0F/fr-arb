@@ -41,25 +41,21 @@ pub async fn retrieve_account_open_positions() -> Result<Vec<Position>> {
         .into_iter()
         .map(|p| {
             let coin = p.symbol.trim_end_matches("USDT").to_string();
-            let pnl: f64 = p.unrealized_profit.parse().unwrap();
             let funding_rate = binance_funding_rates
                 .iter()
                 .find(|&rate| rate.name == coin)
                 .map(|rate| (rate.hourly_funding_rate * 24.0 * 365.0))
                 .expect("funding rate not found");
             let direction = p.position_side.to_lowercase();
-            let size = p.position_amt.parse::<f64>().unwrap().abs();
-            let entry_price = (p.notional.parse::<f64>().unwrap().abs()
-                + p.unrealized_profit.parse::<f64>().unwrap())
-                / size;
+            let entry_price = (p.notional.abs() - p.unrealized_profit) / p.size;
             Position {
                 platform: Platform::Binance,
                 coin,
                 direction,
                 entry_price,
                 funding_rate,
-                pnl,
-                size,
+                pnl: p.unrealized_profit,
+                size: p.size,
             }
         })
         .collect();

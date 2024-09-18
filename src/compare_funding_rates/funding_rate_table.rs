@@ -7,7 +7,7 @@ use prettytable::{Cell, Row, Table};
 
 pub async fn build_funding_rate_table() -> Result<String> {
     let fr = compare_funding_rates().await?;
-    let top_fr = fr.into_iter().take(8).collect::<Vec<_>>();
+    let top_fr = fr.into_iter().take(6).collect::<Vec<_>>();
 
     let all_oi = top_fr
         .iter()

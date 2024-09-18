@@ -33,9 +33,7 @@ async fn main() -> Result<()> {
     dotenv::dotenv().ok();
     env_logger::init();
 
-    let cli = Cli::parse();
-
-    match cli.command {
+    match Cli::parse().command {
         Commands::Balance => {
             let (global_balances, open_positions) = try_join!(
                 build_account_balance_table(),
