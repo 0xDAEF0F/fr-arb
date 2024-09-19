@@ -8,6 +8,7 @@ use crate::util::BidAsk;
 use crate::util::{Orderbook, Platform};
 use anyhow::bail;
 use anyhow::Result;
+use tokio::try_join;
 
 #[derive(Debug)]
 pub struct Quote {
@@ -29,14 +30,14 @@ pub async fn retrieve_quote(token: String, amt: f64) -> Result<(Quote, Quote)> {
     let platform = determine_short_based_on_fr(jfr);
 
     let (short_orderbook, long_orderbook) = match platform {
-        Platform::Binance => (
-            retrieve_binance_order_book(token.clone(), BidAsk::Bid).await?,
-            retrieve_hl_order_book(token.clone(), BidAsk::Ask).await?,
-        ),
-        Platform::Hyperliquid => (
-            retrieve_hl_order_book(token.clone(), BidAsk::Bid).await?,
-            retrieve_binance_order_book(token.clone(), BidAsk::Ask).await?,
-        ),
+        Platform::Binance => try_join!(
+            retrieve_binance_order_book(token.clone(), BidAsk::Bid),
+            retrieve_hl_order_book(token.clone(), BidAsk::Ask),
+        )?,
+        Platform::Hyperliquid => try_join!(
+            retrieve_hl_order_book(token.clone(), BidAsk::Bid),
+            retrieve_binance_order_book(token.clone(), BidAsk::Ask),
+        )?,
     };
 
     let quote_a = retrieve_quote_(short_orderbook, amt / 2.0)?;
