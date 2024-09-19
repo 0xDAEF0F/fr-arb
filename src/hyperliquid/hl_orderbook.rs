@@ -1,5 +1,5 @@
-use crate::util::{BidAsk, LimitOrder, Orderbook, Platform};
-use anyhow::Result;
+use crate::util::{LimitOrder, Orderbook, Platform};
+use anyhow::{bail, Result};
 use reqwest::Client;
 use serde::Deserialize;
 
@@ -14,7 +14,7 @@ struct HlBidAsk {
     sz: String,
 }
 
-pub async fn retrieve_hl_order_book(token: String, ba: BidAsk) -> Result<Orderbook> {
+pub async fn retrieve_hl_order_book(token: String) -> Result<Orderbook> {
     let client = Client::new();
 
     let url = "https://api.hyperliquid.xyz/info";
@@ -30,27 +30,37 @@ pub async fn retrieve_hl_order_book(token: String, ba: BidAsk) -> Result<Orderbo
         .send()
         .await?;
 
+    if !response.status().is_success() {
+        bail!("Could not retrieve orderbook for {} in Hyperliquid.", token);
+    }
+
     let orderbook: ResHyperliquidOrderBook = response.json().await?;
 
-    let ba = match ba {
-        BidAsk::Bid => orderbook.levels.into_iter().next().unwrap(),
-        BidAsk::Ask => orderbook.levels.into_iter().nth(1).unwrap(),
+    let (bids, asks) = match orderbook.levels.as_slice() {
+        [bids, asks, ..] => (bids, asks),
+        _ => bail!("Invalid orderbook structure"),
     };
 
-    let ba = ba
-        .into_iter()
+    let bids = parse_orders(bids)?;
+    let asks = parse_orders(asks)?;
+
+    Ok(Orderbook {
+        platform: Platform::Hyperliquid,
+        bids,
+        asks,
+    })
+}
+
+fn parse_orders(orders: &[HlBidAsk]) -> Result<Vec<LimitOrder>> {
+    orders
+        .iter()
         .map(|ba| -> Result<LimitOrder> {
             Ok(LimitOrder {
                 price: ba.px.parse()?,
                 size: ba.sz.parse()?,
             })
         })
-        .collect::<Result<Vec<_>>>()?;
-
-    Ok(Orderbook {
-        platform: Platform::Hyperliquid,
-        limit_orders: ba,
-    })
+        .collect()
 }
 
 #[cfg(test)]
@@ -59,9 +69,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_retrieve_hyperliquid_asks() {
-        let result = retrieve_hl_order_book("ETH".to_string(), BidAsk::Ask)
-            .await
-            .unwrap();
+        let result = retrieve_hl_order_book("ETH".to_string()).await.unwrap();
 
         println!("{:#?}", result);
 

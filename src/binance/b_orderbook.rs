@@ -1,4 +1,3 @@
-use crate::util::BidAsk;
 use crate::util::LimitOrder;
 use crate::util::Orderbook;
 use crate::util::Platform;
@@ -12,7 +11,7 @@ struct BinanceOrderBook {
     asks: Vec<Vec<String>>,
 }
 
-pub async fn retrieve_binance_order_book(token: String, ba: BidAsk) -> Result<Orderbook> {
+pub async fn retrieve_binance_order_book(token: String) -> Result<Orderbook> {
     let client = Client::new();
 
     let url = format!("https://fapi.binance.com/fapi/v1/depth?symbol={token}USDT");
@@ -20,40 +19,33 @@ pub async fn retrieve_binance_order_book(token: String, ba: BidAsk) -> Result<Or
     let response = client.get(&url).send().await?;
     let orderbook: BinanceOrderBook = response.json().await?;
 
-    match ba {
-        BidAsk::Ask => {
-            let asks = orderbook
-                .asks
-                .into_iter()
-                .map(|a| {
-                    Ok(LimitOrder {
-                        price: a[0].parse::<f64>()?,
-                        size: a[1].parse::<f64>()?,
-                    })
-                })
-                .collect::<Result<Vec<LimitOrder>>>()?;
-            Ok(Orderbook {
-                platform: Platform::Binance,
-                limit_orders: asks,
+    let bids = orderbook
+        .bids
+        .into_iter()
+        .map(|b| {
+            Ok(LimitOrder {
+                price: b[0].parse::<f64>()?,
+                size: b[1].parse::<f64>()?,
             })
-        }
-        BidAsk::Bid => {
-            let bids = orderbook
-                .bids
-                .into_iter()
-                .map(|b| {
-                    Ok(LimitOrder {
-                        price: b[0].parse::<f64>()?,
-                        size: b[1].parse::<f64>()?,
-                    })
-                })
-                .collect::<Result<Vec<LimitOrder>>>()?;
-            Ok(Orderbook {
-                platform: Platform::Binance,
-                limit_orders: bids,
+        })
+        .collect::<Result<Vec<LimitOrder>>>()?;
+
+    let asks = orderbook
+        .asks
+        .into_iter()
+        .map(|a| {
+            Ok(LimitOrder {
+                price: a[0].parse::<f64>()?,
+                size: a[1].parse::<f64>()?,
             })
-        }
-    }
+        })
+        .collect::<Result<Vec<LimitOrder>>>()?;
+
+    Ok(Orderbook {
+        platform: Platform::Binance,
+        bids,
+        asks,
+    })
 }
 
 #[cfg(test)]
@@ -63,9 +55,7 @@ mod tests {
     #[tokio::test]
     async fn test_retrieve_binance_asks() {
         let pair = "ETH".to_string();
-        let result = retrieve_binance_order_book(pair, BidAsk::Ask)
-            .await
-            .unwrap();
+        let result = retrieve_binance_order_book(pair).await.unwrap();
 
         println!("{:#?}", result);
 

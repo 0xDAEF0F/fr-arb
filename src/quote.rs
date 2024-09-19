@@ -4,8 +4,8 @@ use crate::constants::BINANCE_FEE;
 use crate::constants::HYPERLIQUID_FEE;
 use crate::hyperliquid::retrieve_hl_order_book;
 use crate::util::determine_short_based_on_fr;
-use crate::util::BidAsk;
-use crate::util::{Orderbook, Platform};
+use crate::util::LimitOrder;
+use crate::util::Platform;
 use anyhow::bail;
 use anyhow::Result;
 use tokio::try_join;
@@ -20,7 +20,7 @@ pub struct Quote {
 }
 
 /// first quote represents sell/short
-pub async fn retrieve_quote(token: String, amt: f64) -> Result<(Quote, Quote)> {
+pub async fn retrieve_quote_enter(token: String, amt: f64) -> Result<(Quote, Quote)> {
     let jfr = compare_funding_rates()
         .await?
         .into_iter()
@@ -31,33 +31,49 @@ pub async fn retrieve_quote(token: String, amt: f64) -> Result<(Quote, Quote)> {
 
     let (short_orderbook, long_orderbook) = match platform {
         Platform::Binance => try_join!(
-            retrieve_binance_order_book(token.clone(), BidAsk::Bid),
-            retrieve_hl_order_book(token.clone(), BidAsk::Ask),
+            retrieve_binance_order_book(token.clone()),
+            retrieve_hl_order_book(token.clone()),
         )?,
         Platform::Hyperliquid => try_join!(
-            retrieve_hl_order_book(token.clone(), BidAsk::Bid),
-            retrieve_binance_order_book(token.clone(), BidAsk::Ask),
+            retrieve_hl_order_book(token.clone()),
+            retrieve_binance_order_book(token.clone()),
         )?,
     };
 
-    let quote_a = retrieve_quote_(short_orderbook, amt / 2.0)?;
-    let quote_b = retrieve_quote_(long_orderbook, amt / 2.0)?;
+    let spot_price_a = (short_orderbook.bids[0].price + short_orderbook.asks[0].price) / 2.0;
+    let quote_a = retrieve_quote_(
+        short_orderbook.bids,
+        amt / 2.0,
+        spot_price_a,
+        short_orderbook.platform,
+    )?;
+
+    let spot_price_b = (long_orderbook.bids[0].price + long_orderbook.asks[0].price) / 2.0;
+    let quote_b = retrieve_quote_(
+        long_orderbook.asks,
+        amt / 2.0,
+        spot_price_b,
+        long_orderbook.platform,
+    )?;
 
     Ok((quote_a, quote_b))
 }
 
-fn retrieve_quote_(orderbook: Orderbook, amount: f64) -> Result<Quote> {
+fn retrieve_quote_(
+    orderbook: Vec<LimitOrder>,
+    amount: f64,
+    spot_price: f64,
+    platform: Platform,
+) -> Result<Quote> {
     let mut remaining_amount = amount;
     let mut total_cost = 0.0;
     let mut total_quantity = 0.0;
 
-    if orderbook.limit_orders.is_empty() {
+    if orderbook.is_empty() {
         bail!("empty orderbook")
     }
 
-    let first_price = orderbook.limit_orders[0].price;
-    let platform = orderbook.platform;
-    for bid_ask in orderbook.limit_orders {
+    for bid_ask in orderbook {
         let price = bid_ask.price;
         let size = bid_ask.size;
         let total = price * size;
@@ -90,7 +106,7 @@ fn retrieve_quote_(orderbook: Orderbook, amount: f64) -> Result<Quote> {
     let quote = Quote {
         expected_execution_price: execution_price,
         platform,
-        slippage: calculate_pct_difference(execution_price, first_price),
+        slippage: calculate_pct_difference(execution_price, spot_price),
         size: total_quantity,
         platform_fees: match platform {
             Platform::Binance => BINANCE_FEE,
@@ -117,19 +133,13 @@ mod tests {
         let bids = get_mock_bids();
 
         // empty orderbook
-        let quote = retrieve_quote_(
-            Orderbook {
-                platform: Platform::Binance,
-                limit_orders: vec![],
-            },
-            246.0,
-        );
+        let quote = retrieve_quote_(vec![], 247.0, 0.0, Platform::Binance);
         assert!(quote.is_err());
 
-        let quote = retrieve_quote_(bids.clone(), 246.0);
+        let quote = retrieve_quote_(bids.clone(), 247.0, 0.0, Platform::Binance);
         assert!(quote.is_err());
 
-        let quote = retrieve_quote_(bids, 245.0)?;
+        let quote = retrieve_quote_(bids, 245.0, 0.0, Platform::Binance)?;
         assert_relative_eq!(quote.expected_execution_price, 9.07, max_relative = 0.1);
 
         Ok(())
@@ -140,21 +150,15 @@ mod tests {
         let asks = get_mock_asks();
 
         // empty orderbook
-        let quote = retrieve_quote_(
-            Orderbook {
-                platform: Platform::Binance,
-                limit_orders: vec![],
-            },
-            246.0,
-        );
+        let quote = retrieve_quote_(vec![], 247.0, 0.0, Platform::Hyperliquid);
         assert!(quote.is_err());
 
-        // i want to sell more than all the asks combined
-        let quote = retrieve_quote_(asks.clone(), 246.0);
+        // buy more than orderbook depth
+        let quote = retrieve_quote_(asks.clone(), 247.0, 0.0, Platform::Hyperliquid);
         assert!(quote.is_err());
 
         // first ask and half of the second one
-        let quote = retrieve_quote_(asks, 104.5)?;
+        let quote = retrieve_quote_(asks, 104.5, 0.0, Platform::Hyperliquid)?;
         assert_relative_eq!(quote.expected_execution_price, 8.36, max_relative = 0.1);
 
         Ok(())
@@ -170,43 +174,37 @@ mod tests {
         println!("selling pct diff: {selling}");
     }
 
-    fn get_mock_bids() -> Orderbook {
-        Orderbook {
-            platform: Platform::Binance,
-            limit_orders: vec![
-                LimitOrder {
-                    price: 10.0,
-                    size: 10.0,
-                },
-                LimitOrder {
-                    price: 9.0,
-                    size: 9.0,
-                },
-                LimitOrder {
-                    price: 8.0,
-                    size: 8.0,
-                },
-            ],
-        }
+    fn get_mock_bids() -> Vec<LimitOrder> {
+        vec![
+            LimitOrder {
+                price: 10.0,
+                size: 10.0,
+            },
+            LimitOrder {
+                price: 9.0,
+                size: 9.0,
+            },
+            LimitOrder {
+                price: 8.0,
+                size: 8.0,
+            },
+        ]
     }
 
-    fn get_mock_asks() -> Orderbook {
-        Orderbook {
-            platform: Platform::Binance,
-            limit_orders: vec![
-                LimitOrder {
-                    price: 8.0,
-                    size: 8.0,
-                },
-                LimitOrder {
-                    price: 9.0,
-                    size: 9.0,
-                },
-                LimitOrder {
-                    price: 10.0,
-                    size: 10.0,
-                },
-            ],
-        }
+    fn get_mock_asks() -> Vec<LimitOrder> {
+        vec![
+            LimitOrder {
+                price: 8.0,
+                size: 8.0,
+            },
+            LimitOrder {
+                price: 9.0,
+                size: 9.0,
+            },
+            LimitOrder {
+                price: 10.0,
+                size: 10.0,
+            },
+        ]
     }
 }

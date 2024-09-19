@@ -24,10 +24,10 @@ use compare_funding_rates::build_funding_rate_table;
 use funding_history_table::build_past_fr_table;
 use hyperliquid::{retrieve_hl_order_book, retrieve_hl_past_daily_fh};
 use numfmt::{Formatter, Precision};
-use quote::retrieve_quote;
+use quote::retrieve_quote_enter;
 use token_price::retrieve_token_price;
 use tokio::try_join;
-use util::{BidAsk, Platform};
+use util::Platform;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -56,7 +56,7 @@ async fn main() -> Result<()> {
             println!("{past_daily_rates}");
         }
         Commands::Quote { token, amount } => {
-            let (quote_a, quote_b) = retrieve_quote(token, amount).await?;
+            let (quote_a, quote_b) = retrieve_quote_enter(token, amount).await?;
 
             let slippage_bips = (quote_a.slippage + quote_b.slippage) * 10_000.0;
             let platform_fees_bips =
@@ -78,11 +78,9 @@ async fn main() -> Result<()> {
             );
         }
         Commands::OrderbookDepth { token } => {
-            let (b_bid, b_ask, hl_bid, hl_ask) = try_join!(
-                retrieve_binance_order_book(token.clone(), BidAsk::Bid),
-                retrieve_binance_order_book(token.clone(), BidAsk::Ask),
-                retrieve_hl_order_book(token.clone(), BidAsk::Bid),
-                retrieve_hl_order_book(token.clone(), BidAsk::Ask),
+            let (b_orderbook, hl_orderbook) = try_join!(
+                retrieve_binance_order_book(token.clone()),
+                retrieve_hl_order_book(token.clone()),
             )?;
 
             let mut f = Formatter::new()
@@ -90,20 +88,20 @@ async fn main() -> Result<()> {
                 .prefix("$")?
                 .separator(',')?;
 
-            let b_bid = b_bid
-                .limit_orders
+            let b_bid = b_orderbook
+                .bids
                 .iter()
                 .fold(0.0, |acc, lo| acc + lo.price * lo.size);
-            let b_ask = b_ask
-                .limit_orders
+            let b_ask = b_orderbook
+                .asks
                 .iter()
                 .fold(0.0, |acc, lo| acc + lo.price * lo.size);
-            let hl_bid = hl_bid
-                .limit_orders
+            let hl_bid = hl_orderbook
+                .bids
                 .iter()
                 .fold(0.0, |acc, lo| acc + lo.price * lo.size);
-            let hl_ask = hl_ask
-                .limit_orders
+            let hl_ask = b_orderbook
+                .asks
                 .iter()
                 .fold(0.0, |acc, lo| acc + lo.price * lo.size);
 
@@ -123,7 +121,7 @@ Hyperliquid: Bids {} — Asks {}
         }
         Commands::Enter { token, amount } => {
             // quote_a is short/sell
-            let (quote_a, _quote_b) = retrieve_quote(token.clone(), amount).await?;
+            let (quote_a, _quote_b) = retrieve_quote_enter(token.clone(), amount).await?;
 
             // binance uses a min amount (step size). we are going to use that amount
             // for hyperliquid, too.

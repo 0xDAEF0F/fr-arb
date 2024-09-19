@@ -3,7 +3,8 @@ use super::Platform;
 #[derive(Clone, Debug)]
 pub struct Orderbook {
     pub platform: Platform,
-    pub limit_orders: Vec<LimitOrder>,
+    pub bids: Vec<LimitOrder>,
+    pub asks: Vec<LimitOrder>,
 }
 
 #[derive(Clone, Debug)]
