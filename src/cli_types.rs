@@ -33,6 +33,15 @@ pub enum Commands {
         #[arg(short, long)]
         amount: f64,
     },
+    /// find out funding rate arbitrage cost to exit from a token
+    QuoteExit {
+        /// name of the token
+        #[arg(short, long, value_parser = |s: &str| anyhow::Ok(s.to_uppercase()))]
+        token: String,
+        /// amount to quote (USD)
+        #[arg(short, long)]
+        amount: f64,
+    },
     /// bid_ask depth of the orderbook for a token in both platforms
     OrderbookDepth {
         /// name of the token

@@ -1,13 +1,10 @@
+use crate::binance::account_information::retrieve_binance_account_info;
 use crate::binance::retrieve_binance_order_book;
 use crate::compare_funding_rates::compare_funding_rates;
-use crate::constants::BINANCE_FEE;
-use crate::constants::HYPERLIQUID_FEE;
+use crate::constants::{BINANCE_FEE, HYPERLIQUID_FEE};
 use crate::hyperliquid::retrieve_hl_order_book;
-use crate::util::determine_short_based_on_fr;
-use crate::util::LimitOrder;
-use crate::util::Platform;
-use anyhow::bail;
-use anyhow::Result;
+use crate::util::{calculate_pct_difference, determine_short_based_on_fr, LimitOrder, Platform};
+use anyhow::{bail, Result};
 use tokio::try_join;
 
 #[derive(Debug)]
@@ -59,7 +56,42 @@ pub async fn retrieve_quote_enter(token: String, amt: f64) -> Result<(Quote, Quo
     Ok((quote_a, quote_b))
 }
 
-fn retrieve_quote_(
+/// first quote represents sell/short
+pub async fn retrieve_quote_exit(token: String, amt: f64) -> Result<(Quote, Quote)> {
+    let (b_acct_info, b_ob, hl_ob) = try_join!(
+        retrieve_binance_account_info(),
+        retrieve_binance_order_book(token.clone()),
+        retrieve_hl_order_book(token.clone())
+    )?;
+
+    // Binance
+    let b_pos = b_acct_info
+        .positions
+        .iter()
+        .find(|p| p.symbol.trim_end_matches("USDT") == token.clone())
+        .ok_or_else(|| anyhow::anyhow!("{token} not found in your active positions"))?;
+
+    let b_spot = (b_ob.bids[0].price + b_ob.asks[0].price) / 2.0;
+    let (ob, b_is_long) = if b_pos.position_side == "LONG".to_string() {
+        (b_ob.bids, true)
+    } else {
+        (b_ob.asks, false)
+    };
+    let b_quote = retrieve_quote_(ob, amt / 2.0, b_spot, Platform::Binance)?;
+
+    // Hyperliquid
+    let hl_spot = (hl_ob.bids[0].price + hl_ob.asks[0].price) / 2.0;
+    let ob = if b_is_long { hl_ob.bids } else { hl_ob.asks };
+    let hl_quote = retrieve_quote_(ob, amt / 2.0, hl_spot, Platform::Hyperliquid)?;
+
+    Ok(if b_is_long {
+        (b_quote, hl_quote)
+    } else {
+        (hl_quote, b_quote)
+    })
+}
+
+pub fn retrieve_quote_(
     orderbook: Vec<LimitOrder>,
     amount: f64,
     spot_price: f64,
@@ -117,11 +149,6 @@ fn retrieve_quote_(
     Ok(quote)
 }
 
-// returns in decimal percentage
-fn calculate_pct_difference(execution_price: f64, first_price: f64) -> f64 {
-    (execution_price - first_price).abs() / first_price
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -162,16 +189,6 @@ mod tests {
         assert_relative_eq!(quote.expected_execution_price, 8.36, max_relative = 0.1);
 
         Ok(())
-    }
-
-    #[test]
-    fn test_pct_diff() {
-        let buying = calculate_pct_difference(102.0, 100.0); // buying
-        let selling = calculate_pct_difference(100.0, 102.0); // selling
-        assert_relative_eq!(buying, 0.02, max_relative = 0.001);
-        println!("buying pct diff: {buying}");
-        assert_relative_eq!(selling, 0.0196, max_relative = 0.001);
-        println!("selling pct diff: {selling}");
     }
 
     fn get_mock_bids() -> Vec<LimitOrder> {

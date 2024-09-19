@@ -24,7 +24,7 @@ use compare_funding_rates::build_funding_rate_table;
 use funding_history_table::build_past_fr_table;
 use hyperliquid::{retrieve_hl_order_book, retrieve_hl_past_daily_fh};
 use numfmt::{Formatter, Precision};
-use quote::retrieve_quote_enter;
+use quote::{retrieve_quote_enter, retrieve_quote_exit};
 use token_price::retrieve_token_price;
 use tokio::try_join;
 use util::Platform;
@@ -65,6 +65,30 @@ async fn main() -> Result<()> {
             let short_execution_price = quote_a.expected_execution_price;
             let long_execution_price = quote_b.expected_execution_price;
 
+            let spread_bps = -(((short_execution_price - long_execution_price)
+                / long_execution_price)
+                * 10_000.0);
+
+            println!("slippage: {:.3}", slippage_bips);
+            println!("spread: {:.3}", spread_bps);
+            println!("platform fees: {}", platform_fees_bips);
+            println!(
+                "total fees (bps): {:.3}",
+                slippage_bips + platform_fees_bips + spread_bps
+            );
+        }
+        Commands::QuoteExit { token, amount } => {
+            let (quote_a, quote_b) = retrieve_quote_exit(token, amount).await?;
+            println!("{:#?}", quote_a);
+            println!("{:#?}", quote_b);
+
+            let slippage_bips = (quote_a.slippage + quote_b.slippage) * 10_000.0;
+            let platform_fees_bips =
+                ((quote_a.platform_fees + quote_b.platform_fees) / 2.0) * 10_000.0;
+
+            let short_execution_price = quote_a.expected_execution_price;
+            let long_execution_price = quote_b.expected_execution_price;
+
             println!("slippage: {:.3}", slippage_bips);
             println!("platform fees: {}", platform_fees_bips);
             println!(
@@ -88,22 +112,8 @@ async fn main() -> Result<()> {
                 .prefix("$")?
                 .separator(',')?;
 
-            let b_bid = b_orderbook
-                .bids
-                .iter()
-                .fold(0.0, |acc, lo| acc + lo.price * lo.size);
-            let b_ask = b_orderbook
-                .asks
-                .iter()
-                .fold(0.0, |acc, lo| acc + lo.price * lo.size);
-            let hl_bid = hl_orderbook
-                .bids
-                .iter()
-                .fold(0.0, |acc, lo| acc + lo.price * lo.size);
-            let hl_ask = b_orderbook
-                .asks
-                .iter()
-                .fold(0.0, |acc, lo| acc + lo.price * lo.size);
+            let (b_bid, b_ask) = b_orderbook.get_total_depth();
+            let (hl_bid, hl_ask) = hl_orderbook.get_total_depth();
 
             let b_bid = f.fmt2(b_bid).to_string();
             let b_ask = f.fmt2(b_ask).to_string();

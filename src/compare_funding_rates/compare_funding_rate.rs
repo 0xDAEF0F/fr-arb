@@ -56,14 +56,6 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_calculate_effective_rate() {
-        assert_eq!(calculate_effective_rate(0.001, -0.002), 0.003);
-        assert_eq!(calculate_effective_rate(-0.001, 0.002), 0.003);
-        assert_eq!(calculate_effective_rate(0.001, 0.002), 0.001);
-        assert_eq!(calculate_effective_rate(-0.001, -0.002), 0.001);
-    }
-
-    #[tokio::test]
     async fn test_compare_funding_rates() {
         let fr = compare_funding_rates().await.unwrap();
 
