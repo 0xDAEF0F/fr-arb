@@ -1,4 +1,4 @@
-use crate::binance::retrieve_binance_order_book;
+use crate::{binance::retrieve_binance_order_book, util::Orderbook};
 use anyhow::{bail, Result};
 
 pub async fn retrieve_token_price(token: String) -> Result<f64> {
@@ -13,4 +13,12 @@ pub async fn retrieve_token_price(token: String) -> Result<f64> {
 
     // avg between the bid and ask
     Ok((first_bid_price + first_ask_price) / 2.0)
+}
+
+pub fn get_spot_price(orderbook: &Orderbook) -> Result<f64> {
+    if orderbook.asks.is_empty() || orderbook.bids.is_empty() {
+        bail!("Bids || asks are empty")
+    }
+
+    Ok((orderbook.bids[0].price + orderbook.asks[0].price) / 2.0)
 }

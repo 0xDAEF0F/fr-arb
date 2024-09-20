@@ -1,4 +1,3 @@
-use crate::binance::account_information::retrieve_binance_account_info;
 use crate::binance::retrieve_binance_order_book;
 use crate::compare_funding_rates::compare_funding_rates;
 use crate::constants::{BINANCE_FEE, HYPERLIQUID_FEE};
@@ -54,41 +53,6 @@ pub async fn retrieve_quote_enter(token: String, amt: f64) -> Result<(Quote, Quo
     )?;
 
     Ok((quote_a, quote_b))
-}
-
-/// first quote represents sell/short
-pub async fn retrieve_quote_exit(token: String, amt: f64) -> Result<(Quote, Quote)> {
-    let (b_acct_info, b_ob, hl_ob) = try_join!(
-        retrieve_binance_account_info(),
-        retrieve_binance_order_book(token.clone()),
-        retrieve_hl_order_book(token.clone())
-    )?;
-
-    // Binance
-    let b_pos = b_acct_info
-        .positions
-        .iter()
-        .find(|p| p.symbol.trim_end_matches("USDT") == token.clone())
-        .ok_or_else(|| anyhow::anyhow!("{token} not found in your active positions"))?;
-
-    let b_spot = (b_ob.bids[0].price + b_ob.asks[0].price) / 2.0;
-    let (ob, b_is_long) = if b_pos.position_side == "LONG".to_string() {
-        (b_ob.bids, true)
-    } else {
-        (b_ob.asks, false)
-    };
-    let b_quote = retrieve_quote_(ob, amt / 2.0, b_spot, Platform::Binance)?;
-
-    // Hyperliquid
-    let hl_spot = (hl_ob.bids[0].price + hl_ob.asks[0].price) / 2.0;
-    let ob = if b_is_long { hl_ob.bids } else { hl_ob.asks };
-    let hl_quote = retrieve_quote_(ob, amt / 2.0, hl_spot, Platform::Hyperliquid)?;
-
-    Ok(if b_is_long {
-        (b_quote, hl_quote)
-    } else {
-        (hl_quote, b_quote)
-    })
 }
 
 pub fn retrieve_quote_(

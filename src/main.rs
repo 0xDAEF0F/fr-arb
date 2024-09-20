@@ -5,6 +5,7 @@ mod compare_funding_rates;
 mod constants;
 mod funding_history_table;
 mod hyperliquid;
+mod orderbook;
 mod quote;
 mod token_price;
 mod util;
@@ -24,8 +25,10 @@ use compare_funding_rates::build_funding_rate_table;
 use funding_history_table::build_past_fr_table;
 use hyperliquid::{retrieve_hl_order_book, retrieve_hl_past_daily_fh};
 use numfmt::{Formatter, Precision};
-use quote::{retrieve_quote_enter, retrieve_quote_exit};
-use token_price::retrieve_token_price;
+use orderbook::retrieve_orderbooks;
+use prettytable::{Cell, Row, Table};
+use quote::{retrieve_quote_, retrieve_quote_enter};
+use token_price::{get_spot_price, retrieve_token_price};
 use tokio::try_join;
 use util::Platform;
 
@@ -55,51 +58,57 @@ async fn main() -> Result<()> {
             let past_daily_rates = build_past_fr_table(b_fh, hl_fh)?;
             println!("{past_daily_rates}");
         }
-        Commands::Quote { token, amount } => {
-            let (quote_a, quote_b) = retrieve_quote_enter(token, amount).await?;
+        Commands::Quote {
+            token,
+            amount,
+            long,
+        } => {
+            let (b, hl) = retrieve_orderbooks(token).await?;
 
-            let slippage_bips = (quote_a.slippage + quote_b.slippage) * 10_000.0;
-            let platform_fees_bips =
+            let b_spot = get_spot_price(&b)?;
+            let hl_spot = get_spot_price(&hl)?;
+
+            let (quote_a, quote_b) = match long {
+                Platform::Binance => (
+                    retrieve_quote_(b.asks, amount / 2.0, b_spot, Platform::Binance)?,
+                    retrieve_quote_(hl.bids, amount / 2.0, hl_spot, Platform::Hyperliquid)?,
+                ),
+                Platform::Hyperliquid => (
+                    retrieve_quote_(hl.asks, amount / 2.0, hl_spot, Platform::Hyperliquid)?,
+                    retrieve_quote_(b.bids, amount / 2.0, b_spot, Platform::Binance)?,
+                ),
+            };
+
+            let slippage_bps = (quote_a.slippage + quote_b.slippage) * 10_000.0;
+            let platform_fees_bps =
                 ((quote_a.platform_fees + quote_b.platform_fees) / 2.0) * 10_000.0;
-
-            let short_execution_price = quote_a.expected_execution_price;
-            let long_execution_price = quote_b.expected_execution_price;
-
-            let spread_bps = -(((short_execution_price - long_execution_price)
-                / long_execution_price)
+            let spread_bps = -(((quote_b.expected_execution_price
+                - quote_a.expected_execution_price)
+                / quote_a.expected_execution_price)
                 * 10_000.0);
+            let total_bps = slippage_bps + platform_fees_bps + spread_bps;
 
-            println!("slippage: {:.3}", slippage_bips);
-            println!("spread: {:.3}", spread_bps);
-            println!("platform fees: {}", platform_fees_bips);
-            println!(
-                "total fees (bps): {:.3}",
-                slippage_bips + platform_fees_bips + spread_bps
-            );
-        }
-        Commands::QuoteExit { token, amount } => {
-            let (quote_a, quote_b) = retrieve_quote_exit(token, amount).await?;
-            println!("{:#?}", quote_a);
-            println!("{:#?}", quote_b);
+            let mut t = Table::new();
 
-            let slippage_bips = (quote_a.slippage + quote_b.slippage) * 10_000.0;
-            let platform_fees_bips =
-                ((quote_a.platform_fees + quote_b.platform_fees) / 2.0) * 10_000.0;
+            t.add_row(Row::new(vec![Cell::new("Quote (bps)")]));
+            t.add_row(Row::new(vec![
+                Cell::new("Slippage"),
+                Cell::new(&format!("{slippage_bps:.4}")),
+            ]));
+            t.add_row(Row::new(vec![
+                Cell::new("Platform Fees"),
+                Cell::new(&format!("{platform_fees_bps:.4}")),
+            ]));
+            t.add_row(Row::new(vec![
+                Cell::new("Spread"),
+                Cell::new(&format!("{spread_bps:.4}")),
+            ]));
+            t.add_row(Row::new(vec![
+                Cell::new("Total"),
+                Cell::new(&format!("{total_bps:.4}")),
+            ]));
 
-            let short_execution_price = quote_a.expected_execution_price;
-            let long_execution_price = quote_b.expected_execution_price;
-
-            println!("slippage: {:.3}", slippage_bips);
-            println!("platform fees: {}", platform_fees_bips);
-            println!(
-                "total fees (bips): {:.3}",
-                slippage_bips + platform_fees_bips
-            );
-
-            println!(
-                "short price {:?}: {:.4} — long price {:?}: {:.4}",
-                quote_a.platform, short_execution_price, quote_b.platform, long_execution_price
-            );
+            println!("{t}");
         }
         Commands::OrderbookDepth { token } => {
             let (b_orderbook, hl_orderbook) = try_join!(
