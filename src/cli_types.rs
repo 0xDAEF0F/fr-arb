@@ -1,5 +1,5 @@
 use crate::{constants::MAX_DAYS_QUERY_FUNDING_HISTORY, util::Platform};
-use anyhow::{bail, Ok};
+use anyhow::{bail, Ok, Result};
 use clap::{value_parser, Parser, Subcommand};
 
 #[derive(Parser)]
@@ -32,11 +32,7 @@ pub enum Commands {
         /// amount to quote (USD)
         amount: f64,
         /// name of the platform of where to long (binance or hyperliquid)
-        #[arg(long, value_parser = |s: &str| match s.to_lowercase().as_str() {
-            "binance" | "b" => Ok(Platform::Binance),
-            "hyperliquid" | "hl" | "h" => Ok(Platform::Hyperliquid),
-            _ => bail!("Invalid platform. Use 'binance' (or 'b') for Binance, or 'hyperliquid' (or 'hl', 'h') for Hyperliquid")
-        })]
+        #[arg(long, value_parser = validate_platform)]
         long: Platform,
     },
     /// bid_ask depth of the orderbook for a token in both platforms
@@ -45,20 +41,26 @@ pub enum Commands {
         #[arg(value_parser = |s: &str| Ok(s.to_uppercase()))]
         token: String,
     },
-    /// enters from a funding rate position
-    Enter {
-        /// name of the token
+    /// Executes a funding rate operation
+    Execute {
+        /// Name of the token
         #[arg(value_parser = |s: &str| Ok(s.to_uppercase()))]
         token: String,
-        /// amount to execute (USD)
-        amount: f64,
+        /// Amount of tokens
+        size: f64,
+        /// Name of the platform of where to long (Binance or Hyperliquid)
+        #[arg(long, value_parser = validate_platform)]
+        long: Platform,
+        // Maximum slippage based on the quote (expressed in basis points)
+        #[arg(short, long, default_value = "5")]
+        max_slippage: f64,
     },
-    /// exits from a funding rate position
-    Exit {
-        /// name of the token
-        #[arg(value_parser = |s: &str| Ok(s.to_uppercase()))]
-        token: String,
-        /// amount to execute (USD)
-        amount: f64,
-    },
+}
+
+fn validate_platform(s: &str) -> Result<Platform> {
+    match s.to_lowercase().as_str() {
+        "binance" | "b" => Ok(Platform::Binance),
+        "hyperliquid" | "hl" | "h" => Ok(Platform::Hyperliquid),
+        _ => bail!("Invalid platform. Use 'binance' (or 'b') for Binance, or 'hyperliquid' (or 'hl', 'h') for Hyperliquid")
+    }
 }

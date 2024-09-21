@@ -5,9 +5,9 @@ use anyhow::{bail, Result};
 use tokio::try_join;
 
 /// first element in the tuple is the binance orderbook
-pub async fn retrieve_orderbooks(token: String) -> Result<(Orderbook, Orderbook)> {
+pub async fn retrieve_orderbooks(token: &str) -> Result<(Orderbook, Orderbook)> {
     let maybe_orderbooks = try_join!(
-        retrieve_binance_order_book(token.clone()),
+        retrieve_binance_order_book(token),
         retrieve_hl_order_book(token)
     );
 

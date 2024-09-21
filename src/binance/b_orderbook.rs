@@ -11,7 +11,7 @@ struct BinanceOrderBook {
     asks: Vec<Vec<String>>,
 }
 
-pub async fn retrieve_binance_order_book(token: String) -> Result<Orderbook> {
+pub async fn retrieve_binance_order_book(token: &str) -> Result<Orderbook> {
     let client = Client::new();
 
     let url = format!("https://fapi.binance.com/fapi/v1/depth?symbol={token}USDT");
@@ -54,8 +54,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_retrieve_binance_asks() {
-        let pair = "ETH".to_string();
-        let result = retrieve_binance_order_book(pair).await.unwrap();
+        let result = retrieve_binance_order_book("ETH").await.unwrap();
 
         println!("{:#?}", result);
 

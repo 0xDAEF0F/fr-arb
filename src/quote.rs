@@ -28,12 +28,12 @@ pub async fn retrieve_quote_enter(token: String, amt: f64) -> Result<(Quote, Quo
 
     let (short_orderbook, long_orderbook) = match platform {
         Platform::Binance => try_join!(
-            retrieve_binance_order_book(token.clone()),
-            retrieve_hl_order_book(token.clone()),
+            retrieve_binance_order_book(&token),
+            retrieve_hl_order_book(&token),
         )?,
         Platform::Hyperliquid => try_join!(
-            retrieve_hl_order_book(token.clone()),
-            retrieve_binance_order_book(token.clone()),
+            retrieve_hl_order_book(&token),
+            retrieve_binance_order_book(&token),
         )?,
     };
 

@@ -27,7 +27,7 @@ use hyperliquid::{retrieve_hl_order_book, retrieve_hl_past_daily_fh};
 use numfmt::{Formatter, Precision};
 use orderbook::retrieve_orderbooks;
 use prettytable::{Cell, Row, Table};
-use quote::{retrieve_quote_, retrieve_quote_enter};
+use quote::{get_expected_execution_price, retrieve_quote_, retrieve_quote_enter};
 use token_price::{get_mid_price, retrieve_token_price};
 use tokio::try_join;
 use util::{calculate_pct_difference, Platform, Side};
@@ -63,7 +63,7 @@ async fn main() -> Result<()> {
             amount,
             long,
         } => {
-            let (b, hl) = retrieve_orderbooks(token).await?;
+            let (b, hl) = retrieve_orderbooks(&token).await?;
 
             let b_spot = get_mid_price(&b)?;
             let hl_spot = get_mid_price(&hl)?;
@@ -112,8 +112,8 @@ async fn main() -> Result<()> {
         }
         Commands::OrderbookDepth { token } => {
             let (b_orderbook, hl_orderbook) = try_join!(
-                retrieve_binance_order_book(token.clone()),
-                retrieve_hl_order_book(token.clone()),
+                retrieve_binance_order_book(&token),
+                retrieve_hl_order_book(&token),
             )?;
 
             let mut f = Formatter::new()
@@ -138,44 +138,60 @@ Hyperliquid: Bids {} — Asks {}
             );
             println!("{text}");
         }
-        Commands::Enter { token, amount } => {
-            let ((quote_a, quote_b), step_size) = try_join!(
-                // quote_a is short/sell
-                retrieve_quote_enter(token.clone(), amount),
-                // binance uses a min amount (step size). we are going to use that amount
-                // for hyperliquid, too.
-                retrieve_step_size(token.clone())
-            )?;
+        Commands::Execute {
+            token,
+            size,
+            long,
+            max_slippage,
+        } => {
+            let (b, hl) = retrieve_orderbooks(&token).await?;
 
-            // the size we are about to long/short
-            let trimmed_qty = (quote_a.size / step_size).round() * step_size;
+            let b_mp = get_mid_price(&b)?;
+            let hl_mp = get_mid_price(&hl)?;
 
-            let (b, h) = match quote_a.platform {
+            let ((buy_expected_px, buy_mp), (sell_expected_px, sell_mp)) = match long {
+                Platform::Binance => (
+                    (get_expected_execution_price(b.asks, size / 2.0)?, b_mp),
+                    (get_expected_execution_price(hl.bids, size / 2.0)?, hl_mp),
+                ),
+                Platform::Hyperliquid => (
+                    (get_expected_execution_price(hl.asks, size / 2.0)?, hl_mp),
+                    (get_expected_execution_price(b.bids, size / 2.0)?, b_mp),
+                ),
+            };
+
+            let buy_slippage = calculate_pct_difference(buy_expected_px, buy_mp);
+            let sell_slippage = calculate_pct_difference(sell_expected_px, sell_mp);
+
+            let total_slippage_bps = (buy_slippage + sell_slippage) * 10_000.0;
+
+            if total_slippage_bps > max_slippage {
+                bail!(
+                    "Total slippage of {:.4} exceeds maximum slippage of {:.4}.",
+                    total_slippage_bps,
+                    max_slippage
+                )
+            }
+
+            let (b, h) = match long {
                 Platform::Binance => try_join!(
-                    binance::execute_mkt_order(token.clone(), trimmed_qty, false),
-                    hyperliquid::execute_mkt_order(token.clone(), trimmed_qty, true)
+                    binance::execute_mkt_order(token.clone(), size / 2.0, true),
+                    hyperliquid::execute_mkt_order(token.clone(), size / 2.0, false)
                 )?,
                 Platform::Hyperliquid => try_join!(
-                    binance::execute_mkt_order(token.clone(), trimmed_qty, true),
-                    hyperliquid::execute_mkt_order(token.clone(), trimmed_qty, false)
+                    binance::execute_mkt_order(token.clone(), size / 2.0, false),
+                    hyperliquid::execute_mkt_order(token.clone(), size / 2.0, true)
                 )?,
             };
 
             // quote costs (bps)
-            let quote_slippage = (quote_a.slippage + quote_b.slippage) * 10_000.0;
-            let quote_spread = -(((quote_b.expected_execution_price
-                - quote_a.expected_execution_price)
-                / quote_a.expected_execution_price)
-                * 10_000.0);
+            let quote_slippage = total_slippage_bps;
+            let quote_spread =
+                -(((sell_expected_px - buy_expected_px) / buy_expected_px) * 10_000.0);
 
             // real costs
-            let (b_mid_price, hl_mid_price) = if quote_a.platform == Platform::Binance {
-                (quote_a.mid_price, quote_b.mid_price)
-            } else {
-                (quote_b.mid_price, quote_a.mid_price)
-            };
-            let b_slippage = calculate_pct_difference(b.avg_price, b_mid_price);
-            let hl_slippage = calculate_pct_difference(h.avg_price, hl_mid_price);
+            let b_slippage = calculate_pct_difference(b.avg_price, b_mp);
+            let hl_slippage = calculate_pct_difference(h.avg_price, hl_mp);
             let real_slippage = (b_slippage + hl_slippage) * 10_000.0; // bps
             let real_spread = if b.side == Side::Buy {
                 -(((h.avg_price - b.avg_price) / b.avg_price) * 10_000.0)
@@ -189,48 +205,6 @@ Hyperliquid: Bids {} — Asks {}
             println!("real slippage: {:.4}", real_slippage);
             println!("quote spread: {:.4}", quote_spread);
             println!("real spread: {:.4}", real_spread);
-        }
-        Commands::Exit { token, amount } => {
-            let open_positions_token = retrieve_account_open_positions()
-                .await?
-                .into_iter()
-                .filter(|p| p.coin == token)
-                .collect::<Vec<_>>();
-
-            if open_positions_token.len() != 2 {
-                bail!("positions do not exist. check again")
-            }
-
-            let token_price = retrieve_token_price(token.clone()).await?;
-            let intended_size_to_exit = amount / token_price;
-            let step_size = retrieve_step_size(token.clone()).await?;
-            let trimmed_size = get_trimmed_quantity(intended_size_to_exit, step_size);
-
-            let p1 = &open_positions_token[0];
-            let p1_is_buy = p1.direction == "long";
-
-            let size = if trimmed_size > p1.size {
-                p1.size
-            } else {
-                trimmed_size
-            };
-
-            match p1.platform {
-                Platform::Binance => {
-                    let (o1, o2) = try_join!(
-                        binance::execute_mkt_order(token.clone(), size, !p1_is_buy),
-                        hyperliquid::execute_mkt_order(token.clone(), size, p1_is_buy)
-                    )?;
-                    println!("{o1:#?} — {o2:#?}");
-                }
-                Platform::Hyperliquid => {
-                    let (o1, o2) = try_join!(
-                        hyperliquid::execute_mkt_order(token.clone(), size, !p1_is_buy),
-                        binance::execute_mkt_order(token.clone(), size, p1_is_buy)
-                    )?;
-                    println!("{o1:#?} — {o2:#?}");
-                }
-            }
         }
     }
 

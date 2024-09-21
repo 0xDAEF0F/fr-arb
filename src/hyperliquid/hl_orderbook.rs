@@ -14,7 +14,7 @@ struct HlBidAsk {
     sz: String,
 }
 
-pub async fn retrieve_hl_order_book(token: String) -> Result<Orderbook> {
+pub async fn retrieve_hl_order_book(token: &str) -> Result<Orderbook> {
     let client = Client::new();
 
     let url = "https://api.hyperliquid.xyz/info";
@@ -69,7 +69,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_retrieve_hyperliquid_asks() {
-        let result = retrieve_hl_order_book("ETH".to_string()).await.unwrap();
+        let result = retrieve_hl_order_book("ETH").await.unwrap();
 
         println!("{:#?}", result);
 

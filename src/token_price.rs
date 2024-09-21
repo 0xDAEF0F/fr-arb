@@ -2,7 +2,7 @@ use crate::{binance::retrieve_binance_order_book, util::Orderbook};
 use anyhow::{bail, Result};
 
 pub async fn retrieve_token_price(token: String) -> Result<f64> {
-    let b_orderbook = retrieve_binance_order_book(token.clone()).await?;
+    let b_orderbook = retrieve_binance_order_book(&token).await?;
 
     if b_orderbook.bids.is_empty() || b_orderbook.asks.is_empty() {
         bail!("Either bid/asks are empty")
