@@ -28,9 +28,9 @@ use numfmt::{Formatter, Precision};
 use orderbook::retrieve_orderbooks;
 use prettytable::{Cell, Row, Table};
 use quote::{retrieve_quote_, retrieve_quote_enter};
-use token_price::{get_spot_price, retrieve_token_price};
+use token_price::{get_mid_price, retrieve_token_price};
 use tokio::try_join;
-use util::Platform;
+use util::{calculate_pct_difference, Platform, Side};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -65,8 +65,8 @@ async fn main() -> Result<()> {
         } => {
             let (b, hl) = retrieve_orderbooks(token).await?;
 
-            let b_spot = get_spot_price(&b)?;
-            let hl_spot = get_spot_price(&hl)?;
+            let b_spot = get_mid_price(&b)?;
+            let hl_spot = get_mid_price(&hl)?;
 
             let (quote_a, quote_b) = match long {
                 Platform::Binance => (
@@ -139,12 +139,13 @@ Hyperliquid: Bids {} — Asks {}
             println!("{text}");
         }
         Commands::Enter { token, amount } => {
-            // quote_a is short/sell
-            let (quote_a, _quote_b) = retrieve_quote_enter(token.clone(), amount).await?;
-
-            // binance uses a min amount (step size). we are going to use that amount
-            // for hyperliquid, too.
-            let step_size = retrieve_step_size(token.clone()).await?;
+            let ((quote_a, quote_b), step_size) = try_join!(
+                // quote_a is short/sell
+                retrieve_quote_enter(token.clone(), amount),
+                // binance uses a min amount (step size). we are going to use that amount
+                // for hyperliquid, too.
+                retrieve_step_size(token.clone())
+            )?;
 
             // the size we are about to long/short
             let trimmed_qty = (quote_a.size / step_size).round() * step_size;
@@ -160,8 +161,34 @@ Hyperliquid: Bids {} — Asks {}
                 )?,
             };
 
+            // quote costs (bps)
+            let quote_slippage = (quote_a.slippage + quote_b.slippage) * 10_000.0;
+            let quote_spread = -(((quote_b.expected_execution_price
+                - quote_a.expected_execution_price)
+                / quote_a.expected_execution_price)
+                * 10_000.0);
+
+            // real costs
+            let (b_mid_price, hl_mid_price) = if quote_a.platform == Platform::Binance {
+                (quote_a.mid_price, quote_b.mid_price)
+            } else {
+                (quote_b.mid_price, quote_a.mid_price)
+            };
+            let b_slippage = calculate_pct_difference(b.avg_price, b_mid_price);
+            let hl_slippage = calculate_pct_difference(h.avg_price, hl_mid_price);
+            let real_slippage = (b_slippage + hl_slippage) * 10_000.0; // bps
+            let real_spread = if b.side == Side::Buy {
+                -(((h.avg_price - b.avg_price) / b.avg_price) * 10_000.0)
+            } else {
+                -(((b.avg_price - h.avg_price) / h.avg_price) * 10_000.0)
+            };
+
             println!("order filled one: {:?}", b);
             println!("order filled two: {:?}", h);
+            println!("quote slippage: {:.4}", quote_slippage);
+            println!("real slippage: {:.4}", real_slippage);
+            println!("quote spread: {:.4}", quote_spread);
+            println!("real spread: {:.4}", real_spread);
         }
         Commands::Exit { token, amount } => {
             let open_positions_token = retrieve_account_open_positions()

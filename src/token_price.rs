@@ -15,9 +15,9 @@ pub async fn retrieve_token_price(token: String) -> Result<f64> {
     Ok((first_bid_price + first_ask_price) / 2.0)
 }
 
-pub fn get_spot_price(orderbook: &Orderbook) -> Result<f64> {
+pub fn get_mid_price(orderbook: &Orderbook) -> Result<f64> {
     if orderbook.asks.is_empty() || orderbook.bids.is_empty() {
-        bail!("Bids || asks are empty")
+        bail!("Bids or asks are empty")
     }
 
     Ok((orderbook.bids[0].price + orderbook.asks[0].price) / 2.0)

@@ -11,7 +11,7 @@ pub struct OrderFilled {
     pub side: Side,
 }
 
-#[derive(Deserialize, Copy, Clone, Debug)]
+#[derive(Deserialize, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Side {
     Buy,
     Sell,

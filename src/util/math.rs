@@ -1,6 +1,6 @@
 // Returns decimal percentage
-pub fn calculate_pct_difference(execution_price: f64, spot_price: f64) -> f64 {
-    (execution_price - spot_price).abs() / spot_price
+pub fn calculate_pct_difference(execution_price: f64, mid_price: f64) -> f64 {
+    (execution_price - mid_price).abs() / mid_price
 }
 
 pub fn calculate_effective_rate(rate1: f64, rate2: f64) -> f64 {

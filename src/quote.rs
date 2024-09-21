@@ -10,6 +10,7 @@ use tokio::try_join;
 pub struct Quote {
     pub platform: Platform,
     pub expected_execution_price: f64,
+    pub mid_price: f64,
     pub platform_fees: f64, // decimal pct
     pub slippage: f64,      // decimal pct
     pub size: f64,
@@ -36,19 +37,19 @@ pub async fn retrieve_quote_enter(token: String, amt: f64) -> Result<(Quote, Quo
         )?,
     };
 
-    let spot_price_a = (short_orderbook.bids[0].price + short_orderbook.asks[0].price) / 2.0;
+    let mid_price_a = (short_orderbook.bids[0].price + short_orderbook.asks[0].price) / 2.0;
     let quote_a = retrieve_quote_(
         short_orderbook.bids,
         amt / 2.0,
-        spot_price_a,
+        mid_price_a,
         short_orderbook.platform,
     )?;
 
-    let spot_price_b = (long_orderbook.bids[0].price + long_orderbook.asks[0].price) / 2.0;
+    let mid_price_b = (long_orderbook.bids[0].price + long_orderbook.asks[0].price) / 2.0;
     let quote_b = retrieve_quote_(
         long_orderbook.asks,
         amt / 2.0,
-        spot_price_b,
+        mid_price_b,
         long_orderbook.platform,
     )?;
 
@@ -58,7 +59,7 @@ pub async fn retrieve_quote_enter(token: String, amt: f64) -> Result<(Quote, Quo
 pub fn retrieve_quote_(
     orderbook: Vec<LimitOrder>,
     amount: f64,
-    spot_price: f64,
+    mid_price: f64,
     platform: Platform,
 ) -> Result<Quote> {
     let mut remaining_amount = amount;
@@ -101,8 +102,9 @@ pub fn retrieve_quote_(
 
     let quote = Quote {
         expected_execution_price: execution_price,
+        mid_price,
         platform,
-        slippage: calculate_pct_difference(execution_price, spot_price),
+        slippage: calculate_pct_difference(execution_price, mid_price),
         size: total_quantity,
         platform_fees: match platform {
             Platform::Binance => BINANCE_FEE,
@@ -113,11 +115,92 @@ pub fn retrieve_quote_(
     Ok(quote)
 }
 
+pub fn get_expected_execution_price(orderbook: Vec<LimitOrder>, size: f64) -> Result<f64> {
+    if orderbook.is_empty() {
+        bail!("empty orderbook")
+    }
+
+    let mut remaining_size = size;
+    let mut total_cost = 0.0;
+
+    for order in orderbook {
+        if order.size >= remaining_size {
+            total_cost += remaining_size * order.price;
+            remaining_size = 0.0;
+            break;
+        }
+
+        remaining_size -= order.size;
+        total_cost += order.size * order.price;
+    }
+
+    if remaining_size > 0.0 {
+        bail!("orderbook can't cover the requested size")
+    }
+
+    Ok(total_cost / size)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::util::{LimitOrder, Platform};
     use approx::assert_relative_eq;
+
+    #[test]
+    fn test_get_expected_execution_price() -> Result<()> {
+        let orderbook = vec![
+            LimitOrder {
+                price: 100.0,
+                size: 10.0,
+            },
+            LimitOrder {
+                price: 101.0,
+                size: 15.0,
+            },
+            LimitOrder {
+                price: 102.0,
+                size: 20.0,
+            },
+        ];
+        let result = get_expected_execution_price(orderbook, 25.0)?;
+        assert_relative_eq!(result, 100.6, max_relative = 0.0);
+
+        // Test case 3: Partial fill of last order
+        let orderbook = vec![
+            LimitOrder {
+                price: 100.0,
+                size: 10.0,
+            },
+            LimitOrder {
+                price: 101.0,
+                size: 15.0,
+            },
+            LimitOrder {
+                price: 102.0,
+                size: 20.0,
+            },
+        ];
+        let result = get_expected_execution_price(orderbook, 30.0)?;
+        assert_relative_eq!(result, 100.8333333, epsilon = 1e-6);
+
+        let orderbook = vec![];
+        assert!(get_expected_execution_price(orderbook, 10.0).is_err());
+
+        let orderbook = vec![
+            LimitOrder {
+                price: 100.0,
+                size: 10.0,
+            },
+            LimitOrder {
+                price: 101.0,
+                size: 15.0,
+            },
+        ];
+        assert!(get_expected_execution_price(orderbook, 30.0).is_err());
+
+        Ok(())
+    }
 
     #[test]
     fn test_sell_scenario() -> Result<()> {
