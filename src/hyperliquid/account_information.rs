@@ -1,9 +1,11 @@
-use crate::constants::HYPERLIQUID_PUBLIC_KEY;
 use anyhow::Result;
+use ethers::signers::Signer;
 use reqwest::Client;
 use serde::Deserialize;
 use serde_aux::field_attributes::deserialize_number_from_string;
 use serde_json::json;
+
+use crate::hyperliquid::get_wallet;
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -39,6 +41,18 @@ pub struct Position {
         rename = "positionValue"
     )]
     pub notional: f64,
+    pub cum_funding: CumulativeFunding,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct CumulativeFunding {
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub all_time: f64,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub since_open: f64,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub since_change: f64,
 }
 
 pub async fn retrieve_hl_account_info() -> Result<HlAccountRes> {
@@ -46,7 +60,7 @@ pub async fn retrieve_hl_account_info() -> Result<HlAccountRes> {
 
     let body = json!({
         "type": "clearinghouseState",
-        "user": HYPERLIQUID_PUBLIC_KEY
+        "user": get_wallet()?.address()
     });
 
     let res = client

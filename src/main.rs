@@ -30,7 +30,7 @@ use prettytable::{Cell, Row, Table};
 use quote::{get_expected_execution_price, retrieve_quote_, retrieve_quote_enter};
 use token_price::{get_mid_price, retrieve_token_price};
 use tokio::try_join;
-use util::{calculate_pct_difference, Platform, Side};
+use util::{calculate_pct_difference, format_token, Platform, Side};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -51,9 +51,10 @@ async fn main() -> Result<()> {
             println!("{funding_rates_table}");
         }
         Commands::FundingHistory { token, past_days } => {
+            let (b_token, hl_token) = format_token(&token);
             let (b_fh, hl_fh) = try_join!(
-                retrieve_binance_past_daily_fh(token.clone(), past_days.into()),
-                retrieve_hl_past_daily_fh(token.clone(), past_days.into())
+                retrieve_binance_past_daily_fh(b_token, past_days.into()),
+                retrieve_hl_past_daily_fh(hl_token, past_days.into())
             )?;
             let past_daily_rates = build_past_fr_table(b_fh, hl_fh)?;
             println!("{past_daily_rates}");
@@ -79,41 +80,41 @@ async fn main() -> Result<()> {
                 ),
             };
 
-            // TODO: REMOVE
-            println!(
-                "buy price: {:.6} — sell price: {:.6}",
-                quote_a.expected_execution_price, quote_b.expected_execution_price
-            );
+            let (b_slippage, hl_slippage) = if quote_a.platform == Platform::Binance {
+                (quote_a.slippage, quote_b.slippage)
+            } else {
+                (quote_b.slippage, quote_a.slippage)
+            };
 
-            let slippage_bps = (quote_a.slippage + quote_b.slippage) * 10_000.0;
             let platform_fees_bps =
                 ((quote_a.platform_fees + quote_b.platform_fees) / 2.0) * 10_000.0;
             let spread_bps = -(((quote_b.expected_execution_price
                 - quote_a.expected_execution_price)
                 / quote_a.expected_execution_price)
                 * 10_000.0);
-            let total_bps = slippage_bps + platform_fees_bps + spread_bps;
+            let total_fees_bps = ((b_slippage + hl_slippage) * 10_000.0) + platform_fees_bps;
 
             let mut t = Table::new();
 
             t.add_row(Row::new(vec![Cell::new("Quote (bps)")]));
             t.add_row(Row::new(vec![
-                Cell::new("Slippage"),
-                Cell::new(&format!("{slippage_bps:.4}")),
+                Cell::new("Slippage Binance"),
+                Cell::new(&format!("{:.4}", b_slippage * 10_000.0)),
+            ]));
+            t.add_row(Row::new(vec![
+                Cell::new("Slippage Hyperliquid"),
+                Cell::new(&format!("{:.4}", hl_slippage * 10_000.0)),
             ]));
             t.add_row(Row::new(vec![
                 Cell::new("Platform Fees"),
                 Cell::new(&format!("{platform_fees_bps:.4}")),
             ]));
             t.add_row(Row::new(vec![
-                Cell::new("Spread"),
-                Cell::new(&format!("{spread_bps:.4}")),
-            ]));
-            t.add_row(Row::new(vec![
-                Cell::new("Total"),
-                Cell::new(&format!("{total_bps:.4}")),
+                Cell::new("Total Fees"),
+                Cell::new(&format!("{:.4}", total_fees_bps)),
             ]));
 
+            println!("Spread: {:.4}", spread_bps);
             println!("{t}");
         }
         Commands::OrderbookDepth { token } => {
@@ -178,10 +179,7 @@ Hyperliquid: Bids {} — Asks {}
                 )
             }
 
-            let (b_token, hl_token) = match token.as_str() {
-                "PEPE" | "FLOKI" | "BONK" => (format!("1000{token}"), format!("k{token}")),
-                _ => (token.clone(), token),
-            };
+            let (b_token, hl_token) = format_token(&token);
 
             let (b, h) = match long {
                 Platform::Binance => try_join!(

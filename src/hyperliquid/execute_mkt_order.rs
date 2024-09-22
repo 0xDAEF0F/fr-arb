@@ -8,6 +8,8 @@ use hyperliquid_rust_sdk::{
     BaseUrl, ExchangeClient, ExchangeDataStatus, ExchangeResponseStatus, MarketOrderParams,
 };
 
+use super::get_wallet;
+
 pub async fn execute_mkt_order(token: String, size: f64, is_buy: bool) -> Result<OrderFilled> {
     let hl_client = setup_hl_client().await?;
 
@@ -41,11 +43,7 @@ pub async fn execute_mkt_order(token: String, size: f64, is_buy: bool) -> Result
 }
 
 async fn setup_hl_client() -> Result<ExchangeClient> {
-    let mnemonic = std::env::var("MNEMONIC")?;
-
-    let wallet: LocalWallet = MnemonicBuilder::<English>::default()
-        .phrase(mnemonic.as_str())
-        .build()?;
+    let wallet = get_wallet()?;
 
     let exchange_client =
         ExchangeClient::new(None, wallet, Some(BaseUrl::Mainnet), None, None).await?;

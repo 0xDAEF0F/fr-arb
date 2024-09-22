@@ -1,3 +1,5 @@
+use std::ops::Neg;
+
 use crate::{
     binance::{
         account_information::retrieve_binance_account_info,
@@ -22,6 +24,7 @@ pub struct Position {
     pub direction: String, // short || long
     pub size: f64,         // amount of tokens/cryptocurrency
     pub pnl: f64,
+    pub funding: f64,      // USD
     pub funding_rate: f64, // annualized
     pub notional: f64,     // notional value of position USD
 }
@@ -52,6 +55,7 @@ pub async fn retrieve_account_open_positions() -> Result<Vec<Position>> {
                 coin,
                 direction,
                 funding_rate,
+                funding: p.funding,
                 notional: p.notional,
                 pnl: p.unrealized_profit,
                 size: p.size,
@@ -82,6 +86,7 @@ pub async fn retrieve_account_open_positions() -> Result<Vec<Position>> {
                 direction,
                 notional: p.position.notional,
                 funding_rate,
+                funding: p.position.cum_funding.since_open.neg(),
                 pnl,
                 size,
             }
@@ -111,6 +116,7 @@ pub async fn build_account_open_positions_table() -> Result<String> {
         Cell::new("Side"),
         Cell::new("Notional amt"),
         Cell::new("Pnl"),
+        Cell::new("Funding"),
         Cell::new("Funding rate (apr)"),
     ]));
 
@@ -127,6 +133,7 @@ pub async fn build_account_open_positions_table() -> Result<String> {
             Cell::new(&position.direction),
             Cell::new(f.fmt2(position.notional)),
             Cell::new(f.fmt2(position.pnl)),
+            Cell::new(f.fmt2(position.funding)),
             Cell::new(&fmt_annualized_fr),
         ]));
     }
