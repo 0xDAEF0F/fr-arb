@@ -54,7 +54,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_retrieve_binance_asks() {
-        let result = retrieve_binance_order_book("ETH").await.unwrap();
+        let result = retrieve_binance_order_book("1000PEPE").await.unwrap();
 
         println!("{:#?}", result);
 

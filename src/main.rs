@@ -79,6 +79,12 @@ async fn main() -> Result<()> {
                 ),
             };
 
+            // TODO: REMOVE
+            println!(
+                "buy price: {:.6} — sell price: {:.6}",
+                quote_a.expected_execution_price, quote_b.expected_execution_price
+            );
+
             let slippage_bps = (quote_a.slippage + quote_b.slippage) * 10_000.0;
             let platform_fees_bps =
                 ((quote_a.platform_fees + quote_b.platform_fees) / 2.0) * 10_000.0;
@@ -116,25 +122,24 @@ async fn main() -> Result<()> {
                 retrieve_hl_order_book(&token),
             )?;
 
+            let (b_bid, b_ask) = b_orderbook.get_total_depth();
+            let (hl_bid, hl_ask) = hl_orderbook.get_total_depth();
+
             let mut f = Formatter::new()
                 .precision(Precision::Decimals(0))
                 .prefix("$")?
                 .separator(',')?;
-
-            let (b_bid, b_ask) = b_orderbook.get_total_depth();
-            let (hl_bid, hl_ask) = hl_orderbook.get_total_depth();
-
-            let b_bid = f.fmt2(b_bid).to_string();
-            let b_ask = f.fmt2(b_ask).to_string();
-            let hl_bid = f.fmt2(hl_bid).to_string();
-            let hl_ask = f.fmt2(hl_ask).to_string();
 
             let text = format!(
                 r#"Orderbook Depth {}
 Binance: Bids {} — Asks {}
 Hyperliquid: Bids {} — Asks {}
 "#,
-                token, b_bid, b_ask, hl_bid, hl_ask
+                token,
+                f.fmt2(b_bid).to_string(),
+                f.fmt2(b_ask).to_string(),
+                f.fmt2(hl_bid).to_string(),
+                f.fmt2(hl_ask).to_string()
             );
             println!("{text}");
         }
@@ -173,14 +178,19 @@ Hyperliquid: Bids {} — Asks {}
                 )
             }
 
+            let (b_token, hl_token) = match token.as_str() {
+                "PEPE" | "FLOKI" | "BONK" => (format!("1000{token}"), format!("k{token}")),
+                _ => (token.clone(), token),
+            };
+
             let (b, h) = match long {
                 Platform::Binance => try_join!(
-                    binance::execute_mkt_order(token.clone(), size / 2.0, true),
-                    hyperliquid::execute_mkt_order(token.clone(), size / 2.0, false)
+                    binance::execute_mkt_order(b_token, size / 2.0, true),
+                    hyperliquid::execute_mkt_order(hl_token, size / 2.0, false)
                 )?,
                 Platform::Hyperliquid => try_join!(
-                    binance::execute_mkt_order(token.clone(), size / 2.0, false),
-                    hyperliquid::execute_mkt_order(token.clone(), size / 2.0, true)
+                    binance::execute_mkt_order(b_token, size / 2.0, false),
+                    hyperliquid::execute_mkt_order(hl_token, size / 2.0, true)
                 )?,
             };
 

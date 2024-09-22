@@ -69,7 +69,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_retrieve_hyperliquid_asks() {
-        let result = retrieve_hl_order_book("ETH").await.unwrap();
+        let result = retrieve_hl_order_book("kPEPE").await.unwrap();
 
         println!("{:#?}", result);
 

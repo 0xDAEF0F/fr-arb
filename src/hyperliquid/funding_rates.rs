@@ -92,7 +92,7 @@ mod tests {
 
         let token: Vec<_> = tokens
             .into_iter()
-            .filter(|t| t.name == "AAVE".to_string())
+            .filter(|t| t.name == "kPEPE".to_string())
             .collect();
 
         let token = &token[0];
